@@ -398,7 +398,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       // ✅ SUPER ADMIN LOGIN - Credentials with fallbacks and trim to prevent newline issues
-      const superAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'grampanchayat023@gmail.com').toLowerCase().trim();
+      const superAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'grampanchayathelp@gmail.com').toLowerCase().trim();
       const superAdminLoginPassword = (import.meta.env.VITE_ADMIN_PASSWORD || 'admin123').trim();
       const superAdminBackendPassword = (import.meta.env.VITE_ADMIN_BACKEND_PASSWORD || 'grampanchayat_admin').trim();
 

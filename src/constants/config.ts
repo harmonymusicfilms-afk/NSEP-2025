@@ -5,7 +5,7 @@ export const APP_CONFIG = {
   fullName: 'GPHDM National Scholarship Exam',
   year: 2026,
   organization: 'GPHDM National Scholarship Foundation',
-  supportEmail: 'grampanchayat023@gmail.com',
+  supportEmail: 'grampanchayathelp@gmail.com',
   supportPhone: '+91 9120057559',
   notificationGroupUrl: 'https://wa.me/919120057559',
   masterReferralCode: 'GPHDM2026',
