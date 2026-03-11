@@ -172,15 +172,15 @@ export function AdminSettingsPage() {
     if (currentAdmin) {
       addLog(
         currentAdmin.id,
-        'UPDATE_SCHOLARSHIP_PRIZES',
+        'UPDATE_AMOUNTS',
         undefined,
-        `Prizes for Ranks 1-10 updated`
+        `AMOUNTS for Ranks 1-10 updated`
       );
     }
 
     toast({
-      title: 'Scholarship Prizes Updated',
-      description: 'Prizes for all ranks have been saved successfully.',
+      title: 'AMOUNTS Updated',
+      description: 'AMOUNTS for all ranks have been saved successfully.',
     });
   };
 
@@ -492,12 +492,12 @@ export function AdminSettingsPage() {
             </Button>
           </CardContent>
         </Card>
-        {/* Scholarship Prizes Card (Added) */}
+        {/* AMOUNTS Card (Added) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Award className="size-5 text-amber-600" />
-              Scholarship Prizes
+              AMOUNTS
             </CardTitle>
             <CardDescription>
               Set amount for each eligible rank
@@ -533,7 +533,7 @@ export function AdminSettingsPage() {
               disabled={!isSuperAdmin}
             >
               <Save className="size-4" />
-              Save Scholarship Prizes
+              Save AMOUNTS
             </Button>
           </CardContent>
         </Card>
