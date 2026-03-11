@@ -147,6 +147,9 @@ export function HomePage() {
                 <p className="text-xl sm:text-2xl font-bold text-primary">
                   {t('home.hero.missionLine')}
                 </p>
+                <p className="text-lg sm:text-xl font-semibold text-accent uppercase tracking-wide">
+                  EXAMINATION MANAGED BY S.V. MEDIA FILMS PRODUCTION
+                </p>
                 <p className="text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0">
                   {t('home.hero.subtitle')}
                 </p>
