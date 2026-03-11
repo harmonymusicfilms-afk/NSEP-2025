@@ -1023,13 +1023,19 @@ export function RegisterPage() {
                                 {formatCurrency(getExamFee(formData.class))}
                               </p>
                             </div>
-                            <div className="text-right flex flex-col items-end gap-2">
-                              <div className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 group-hover:bg-green-700">
-                                Pay Now & Continue <ArrowRight className="size-3" />
+                            <div className="text-right flex flex-col items-end gap-1">
+                              <div className="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1 group-hover:bg-green-700 shadow-sm">
+                                Register & Continue <ArrowRight className="size-3" />
                               </div>
-                              <div className="flex items-center gap-1 opacity-60">
-                                <Shield className="size-3 text-green-700" />
-                                <span className="text-[10px] text-green-800 font-medium">Securely via Razorpay</span>
+                              <div 
+                                className="flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded border border-green-200 hover:bg-white transition-all cursor-pointer shadow-sm group/link"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open('https://razorpay.me/@grampanchayathelpdeskmission', '_blank');
+                                }}
+                              >
+                                <Shield className="size-2.5 text-green-700" />
+                                <span className="text-[9px] text-green-800 font-black uppercase tracking-tighter group-hover/link:text-primary">Pay via Razorpay Link</span>
                               </div>
                             </div>
                           </Button>

@@ -405,27 +405,47 @@ export function ExamPage() {
                 </div>
               </div>
 
-              <Button
-                className="w-full institutional-gradient"
-                size="lg"
-                onClick={handlePayment}
-                disabled={isProcessingPayment}
-              >
-                {isProcessingPayment ? (
-                  <>
-                    <Loader2 className="size-5 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="size-5 mr-2" />
-                    Confirm & Start Exam
-                  </>
-                )}
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  className="w-full institutional-gradient h-14"
+                  size="lg"
+                  onClick={handlePayment}
+                  disabled={isProcessingPayment}
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 className="size-5 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="size-5 mr-2" />
+                      Pay with Checkout
+                    </>
+                  )}
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border"></span>
+                  </div>
+                  <div className="relative flex justify-center text-[10px] uppercase">
+                    <span className="bg-background px-4 text-muted-foreground font-black tracking-widest">OR</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full h-14 border-2 border-primary/20 hover:bg-primary/5 text-primary font-black gap-2"
+                  onClick={() => window.open('https://razorpay.me/@grampanchayathelpdeskmission', '_blank')}
+                >
+                  <CreditCard className="size-5" />
+                  Pay via Razorpay Link
+                </Button>
+              </div>
 
               <p className="text-xs text-center text-muted-foreground">
-                Donation: {formatCurrency(examFee)} • Auto-approved for testing
+                Donation: {formatCurrency(examFee)} • Verified Payment Required
               </p>
             </CardContent>
           </Card>
