@@ -504,52 +504,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Prize Pool */}
-      <section className="py-20 bg-secondary/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              {t('home.scholarship.title')}
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              {t('home.scholarship.subtitle')} Our elite scholars are deeply rewarded.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
-            {SCHOLARSHIP_CONFIG.eligibleRanks.slice(0, 5).map((rank) => {
-              const colors = {
-                1: 'bg-accent/20 border-accent/50',
-                2: 'bg-primary/20 border-primary/50',
-                3: 'bg-accent/10 border-accent/30',
-                others: 'bg-background border-border'
-              };
-              const color = rank === 1 ? colors[1] : rank === 2 ? colors[2] : rank === 3 ? colors[3] : colors.others;
-
-              return (
-                <motion.div
-                  key={rank}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: rank * 0.1 }}
-                  className={`${color} rounded-xl p-6 text-center border`}
-                >
-                  <div className="inline-flex size-14 rounded-lg bg-primary/10 items-center justify-center mb-4">
-                    <Trophy className="size-7 text-primary" />
-                  </div>
-                  <div className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-2">
-                    {getOrdinal(rank)} Rank
-                  </div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {formatCurrency(prizes[rank] || 0)}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-primary">
