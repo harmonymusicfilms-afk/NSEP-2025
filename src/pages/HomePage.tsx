@@ -335,6 +335,88 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Scholarship Rewards Category Section */}
+      <section className="py-20 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
+              {language === 'hi' ? 'छात्रवृत्ति पुरस्कार श्रेणियाँ' : 'Scholarship Rewards By Category'}
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              {language === 'hi' 
+                ? 'प्रत्येक श्रेणी के लिए आकर्षक छात्रवृत्ति राशि।' 
+                : 'Attractive scholarship amounts across all educational categories.'}
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { 
+                category: 'Primary', 
+                classes: '1-5', 
+                range: '₹2,000 - ₹10,000', 
+                ranks: '100+ Ranks',
+                color: 'from-blue-500/10 to-blue-600/5',
+                border: 'border-blue-200',
+                text: 'text-blue-700'
+              },
+              { 
+                category: 'Junior', 
+                classes: '6-8', 
+                range: '₹2,500 - ₹12,000', 
+                ranks: '100+ Ranks',
+                color: 'from-green-500/10 to-green-600/5',
+                border: 'border-green-200',
+                text: 'text-green-700'
+              },
+              { 
+                category: 'Senior', 
+                classes: '9-12', 
+                range: '₹3,000 - ₹15,000', 
+                ranks: '100+ Ranks',
+                color: 'from-purple-500/10 to-purple-600/5',
+                border: 'border-purple-200',
+                text: 'text-purple-700'
+              }
+            ].map((item, i) => (
+              <motion.div
+                key={item.category}
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className={`flex flex-col p-8 rounded-2xl border ${item.border} bg-gradient-to-br ${item.color} shadow-sm group hover:shadow-md transition-all`}
+              >
+                <div className="mb-4">
+                  <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white border ${item.border} ${item.text}`}>
+                    Class {item.classes}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-bold text-foreground mb-2">{item.category}</h3>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between py-2 border-b border-white/50">
+                    <span className="text-muted-foreground">Scholarship Range:</span>
+                    <span className={`font-bold text-lg ${item.text}`}>{item.range}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-muted-foreground">Eligible Positions:</span>
+                    <span className="font-semibold text-foreground">{item.ranks}</span>
+                  </div>
+                </div>
+                <div className="mt-8">
+                  <Link to="/register">
+                    <Button className={`w-full font-bold group ${item.category === 'Primary' ? 'bg-blue-600 hover:bg-blue-700' : item.category === 'Junior' ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                      Enrol Now
+                      <ArrowRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Rewards Section */}
       <section className="py-20 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
