@@ -42,7 +42,7 @@ const mapStudent = (data: any): Student => ({
   id: data.id,
   name: data.name,
   fatherName: data.father_name,
-  class: data.class_level || data.class || 0,
+  class: data.class || data.class_level || 0,
   mobile: data.mobile,
   email: data.email,
   schoolName: data.school_name,
@@ -55,7 +55,7 @@ const mapStudent = (data: any): Student => ({
   photoUrl: data.photo_url,
   centerCode: data.center_code,
   referralCode: data.referral_code,
-  referredByCenter: data.referred_by_center_code || data.referred_by_center,
+  referredByCenter: data.referred_by_center || data.referred_by_center_code,
   referredByStudent: data.referred_by_student,
   status: data.status,
   createdAt: data.created_at,
@@ -165,7 +165,7 @@ const mapCenter = (data: any): Center => ({
 const mapExamResult = (data: any): ExamResult => ({
   id: data.id,
   studentId: data.student_id,
-  class: data.class_level || data.class || 0,
+  class: data.class || data.class_level || 0,
   totalScore: data.total_score,
   correctCount: data.correct_count,
   wrongCount: data.wrong_count,
@@ -179,7 +179,7 @@ const mapExamResult = (data: any): ExamResult => ({
 const mapScholarship = (data: any): Scholarship => ({
   id: data.id,
   studentId: data.student_id,
-  class: data.class_level || data.class || 0,
+  class: data.class || data.class_level || 0,
   rank: data.rank,
   scholarshipType: data.scholarship_type,
   amount: data.amount ? Number(data.amount) : undefined,
@@ -193,7 +193,7 @@ const mapScholarship = (data: any): Scholarship => ({
 const mapExamSession = (data: any): ExamSession => ({
   id: data.id,
   studentId: data.student_id,
-  class: data.class_level || data.class || 0,
+  class: data.class || data.class_level || 0,
   startedAt: data.started_at,
   currentQuestionIndex: data.current_question_index,
   answers: data.answers || [],
@@ -217,7 +217,7 @@ const mapCertificate = (data: any): Certificate => ({
 
 const mapExamQuestion = (data: any): ExamQuestion => ({
   id: data.id,
-  class: data.class_level || data.class || 0,
+  class: data.class || data.class_level || 0,
   questionText: data.question_text,
   options: data.options || [],
   correctOptionIndex: data.correct_option_index,
@@ -612,7 +612,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         id: userId,
         name: data.name,
         father_name: data.fatherName,
-        class_level: data.class,
+        class: data.class,
         mobile: data.mobile,
         email: data.email,
         school_name: data.schoolName,
@@ -625,7 +625,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         photo_url: data.photoUrl || null,
         center_code: centerCode,
         referral_code: referralCode,
-        referred_by_center_code: data.referredByCenter || null,
+        referred_by_center: data.referredByCenter || null,
         referred_by_student: data.referredByStudent || null,
         status: 'PENDING',
       };
@@ -670,7 +670,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       const dbUpdate: any = { ...data };
       if (data.name) dbUpdate.name = data.name;
       if (data.fatherName) dbUpdate.father_name = data.fatherName;
-      if (data.class) dbUpdate.class_level = data.class;
+      if (data.class) dbUpdate.class = data.class;
       if (data.schoolName) dbUpdate.school_name = data.schoolName;
       if (data.schoolContact) dbUpdate.school_contact = data.schoolContact;
       if (data.addressVillage) dbUpdate.address_village = data.addressVillage;
@@ -679,7 +679,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (data.addressDistrict) dbUpdate.address_district = data.addressDistrict;
       if (data.addressState) dbUpdate.address_state = data.addressState;
       if (data.photoUrl !== undefined) dbUpdate.photo_url = data.photoUrl;
-      if (data.referredByCenter) dbUpdate.referred_by_center_code = data.referredByCenter;
+      if (data.referredByCenter) dbUpdate.referred_by_center = data.referredByCenter;
       if (data.referredByStudent) dbUpdate.referred_by_student = data.referredByStudent;
 
       // Remove frontend-only keys

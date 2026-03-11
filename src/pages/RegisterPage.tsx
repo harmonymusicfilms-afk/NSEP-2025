@@ -1667,14 +1667,12 @@ export function RegisterPage() {
                     <div />
                   )}
 
-                  {step !== 'review' && step !== 'success' ? (
+                  {step !== 'review' && step !== 'success' && (step !== 'identity' || formData.class === 0) ? (
                     <Button
                       onClick={handleNext}
                       disabled={isSubmitting || (step === 'identity' && isProcessingPayment)}
                     >
-                      {step === 'identity' && formData.class > 0
-                        ? `Pay ${formatCurrency(examFee)} & Continue`
-                        : step === 'payment' ? 'Confirm Payment & Next' : 'Next'}
+                      {step === 'payment' ? 'Confirm Payment & Next' : 'Next'}
                       <ArrowRight className="size-4 ml-2" />
                     </Button>
                   ) : step === 'review' ? (
