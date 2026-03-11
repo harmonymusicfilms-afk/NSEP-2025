@@ -413,6 +413,18 @@ export function RegisterPage() {
           referredByCenter: referralType === 'CENTER' ? formData.referredByCenter.trim().toUpperCase() : undefined,
           referredByStudent: referralType === 'STUDENT' ? formData.referredByCenter.trim().toUpperCase() : undefined,
         }, userId);
+      } else if (student.status === 'PENDING') {
+        // Update existing pending student with latest info (including class which determines fee)
+        await useStudentStore.getState().updateStudent(student.id, {
+          name: formData.name.trim(),
+          fatherName: formData.fatherName.trim() || 'TBD',
+          class: formData.class,
+          mobile: formData.mobile.trim(),
+          schoolName: formData.schoolName.trim() || 'TBD',
+          schoolContact: formData.schoolContact.trim() || 'TBD',
+          referredByCenter: referralType === 'CENTER' ? formData.referredByCenter.trim().toUpperCase() : undefined,
+          referredByStudent: referralType === 'STUDENT' ? formData.referredByCenter.trim().toUpperCase() : undefined,
+        });
       }
 
       if (!student) throw new Error('Student profile creation failed');
@@ -427,8 +439,13 @@ export function RegisterPage() {
         toast({ title: 'Welcome back!', description: 'Resuming your registration.' });
       } else {
         setStep('payment');
-        toast({ title: 'Account Verified', description: 'Proceed with exam donation payment.' });
+        // Automatically trigger Razorpay after a slightly longer delay to ensure state and student record are ready
+        setTimeout(() => {
+          handleRazorpayCheckout();
+        }, 500);
+        toast({ title: 'Profile Created ✓', description: 'Opening secure payment gateway...' });
       }
+
 
     } catch (error: any) {
       console.error('Identity Process Error:', error);
@@ -457,7 +474,7 @@ export function RegisterPage() {
 
       // 2. Open Razorpay Checkout
       const options = {
-        key: RAZORPAY_CONFIG.key_id,
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || RAZORPAY_CONFIG.key_id,
         amount: examFee * 100, // in paise
         currency: 'INR',
         name: APP_CONFIG.organization,
@@ -989,7 +1006,7 @@ export function RegisterPage() {
                             </div>
                             <div className="text-right">
                               <div className="bg-green-600 text-white px-4 py-2 rounded-full text-xs font-black flex items-center gap-2 group-hover:bg-green-700 shadow-md transform group-hover:translate-x-1 transition-all">
-                                Register & Continue <ArrowRight className="size-4" />
+                                Pay Fee & Register <ArrowRight className="size-4" />
                               </div>
                             </div>
                           </Button>
@@ -1111,26 +1128,17 @@ export function RegisterPage() {
                               {formatCurrency(getExamFee(formData.class))}
                             </div>
 
-                            <Button 
-                              className="w-full h-20 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl gap-3 shadow-2xl shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all text-xl"
-                              onClick={handleRazorpayCheckout}
-                              disabled={isProcessingPayment}
-                            >
-                              {isProcessingPayment ? (
-                                <>
-                                  <Loader2 className="size-6 animate-spin" />
-                                  Initializing...
-                                </>
-                              ) : (
-                                <>
-                                  <CreditCard className="size-7" />
-                                  PAY DIRECTLY
-                                  <ArrowRight className="size-6" />
-                                </>
-                              )}
-                            </Button>
+                            <div className="w-full h-24 bg-primary/10 border-2 border-primary/20 rounded-2xl flex flex-col items-center justify-center gap-1 group/btn relative overflow-hidden">
+                              <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>
+                              <div className="relative z-10 flex items-center gap-2 text-primary font-black">
+                                <Loader2 className="size-5 animate-spin" />
+                                <span className="text-lg">Payment in Progress</span>
+                              </div>
+                              <p className="relative z-10 text-[10px] text-primary/60 font-bold uppercase tracking-widest">Completing Secure Transaction</p>
+                            </div>
 
                             <div className="flex items-center justify-center gap-4 pt-4 opacity-60">
+
                               <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" alt="UPI" className="h-5" />
                               <img src="https://upload.wikimedia.org/wikipedia/commons/d/d1/RuPay.svg" alt="RuPay" className="h-4" />
                               <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3" />

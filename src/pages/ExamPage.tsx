@@ -231,24 +231,19 @@ export function ExamPage() {
         toast({
           variant: 'destructive',
           title: 'Payment Failed',
-          description: response.error.description + '. Redirecting to manual payment...',
+          description: response.error.description || 'Transaction declined.',
         });
-        setTimeout(() => {
-          window.open(APP_CONFIG.paymentLink, '_blank');
-        }, 2000);
         setIsProcessingPayment(false);
       });
-
       rzp.open();
 
     } catch (error: any) {
       console.error('Payment Error:', error);
-      // Fallback to manual link if automated checkout fails
       toast({
-        title: 'Redirecting to Payment',
-        description: 'Opening Razorpay payment page...',
+        variant: 'destructive',
+        title: 'Payment Error',
+        description: error.message || 'Failed to start Razorpay checkout. Please refresh.',
       });
-      window.open(APP_CONFIG.paymentLink, '_blank');
       setIsProcessingPayment(false);
     }
   };
@@ -424,28 +419,11 @@ export function ExamPage() {
                   ) : (
                     <>
                       <CheckCircle className="size-5 mr-2" />
-                      Pay with Checkout
+                      Pay Fee & Unlock Exam
                     </>
                   )}
                 </Button>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border"></span>
-                  </div>
-                  <div className="relative flex justify-center text-[10px] uppercase">
-                    <span className="bg-background px-4 text-muted-foreground font-black tracking-widest">OR</span>
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  className="w-full h-14 border-2 border-primary/20 hover:bg-primary/5 text-primary font-black gap-2"
-                  onClick={() => window.open(APP_CONFIG.paymentLink, '_blank')}
-                >
-                  <CreditCard className="size-5" />
-                  Pay via Razorpay Link
-                </Button>
               </div>
 
               <p className="text-xs text-center text-muted-foreground">
