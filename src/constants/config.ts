@@ -4,7 +4,7 @@ export const APP_CONFIG = {
   shortName: 'GPHDM',
   fullName: 'GPHDM National Scholarship Exam',
   year: 2026,
-  organization: 'GPHDM National Scholarship Foundation',
+  organization: 'Gram Panchayat Help DASK Mission',
   supportEmail: 'grampanchayathelp@gmail.com',
   supportPhone: '+91 9120057559',
   notificationGroupUrl: 'https://wa.me/919120057559',
