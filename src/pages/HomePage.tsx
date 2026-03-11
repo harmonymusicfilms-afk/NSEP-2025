@@ -435,9 +435,27 @@ export function HomePage() {
                 {t('home.centerCode.title')}
               </h2>
 
-              <p className="text-lg text-muted-foreground mb-10">
+              <p className="text-lg text-muted-foreground mb-8">
                 {t('home.centerCode.subtitle')} Transform your institute into an excellence hub.
               </p>
+
+              <div className="mb-10">
+                <h4 className="text-sm font-bold text-foreground/70 uppercase tracking-widest mb-4">Eligible Categories</h4>
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    'All Educational Institutions',
+                    'Social Workers',
+                    'NGOs',
+                    'Coaching Institutes',
+                    'Others'
+                  ].map((cat) => (
+                    <span key={cat} className="inline-flex items-center px-4 py-2 rounded-lg bg-secondary/30 border border-border text-foreground font-medium text-sm hover:bg-secondary/50 transition-colors">
+                      <CheckCircle className="size-4 mr-2 text-primary" />
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </div>
 
               <div className="space-y-6 mb-10">
                 {[
