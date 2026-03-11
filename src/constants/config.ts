@@ -29,8 +29,8 @@ export const getExamFee = (classNumber: number): number => {
 export const EXAM_CONFIG = {
   totalQuestions: 60,
   demoQuestionCount: 10, // For demo mode
-  timePerQuestionOptions: [5, 7] as const, // seconds
-  defaultTimePerQuestion: 5,
+  timePerQuestionOptions: [10, 15] as const, // seconds
+  defaultTimePerQuestion: 10,
   gapBetweenQuestions: 60, // seconds
   marksPerCorrect: 4,
   marksPerWrong: -4, // Same negative marking
