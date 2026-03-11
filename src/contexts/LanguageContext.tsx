@@ -11,9 +11,9 @@ interface LanguageContextType {
 const translations: Record<Language, Record<string, string>> = {
   en: {
     // Common
-    'app.name': 'GPHDM National Scholarship Certificate',
+    'app.name': 'GPHDM National Scholarship Exam',
     'app.shortName': 'GPHDM',
-    'app.tagline': 'GPHDM National Scholarship Examination Certificate',
+    'app.tagline': 'GPHDM National Scholarship Exam',
 
     // Navigation
     'nav.home': 'Home',
@@ -28,7 +28,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.admin': 'Admin',
 
     // Home Page
-    'home.hero.title': 'GPHDM National Scholarship Examination Certificate',
+    'home.hero.title': 'GPHDM National Scholarship Exam',
     'home.hero.missionLine': 'Through Gram Panchayat Help Mission',
     'home.hero.production': 'Official Scholarship Portal',
     'home.hero.subtitle': 'Empowering students across India through the GPHDM National Scholarship. Register now for Class 1-12 examinations.',
@@ -227,9 +227,9 @@ const translations: Record<Language, Record<string, string>> = {
   },
   hi: {
     // Common
-    'app.name': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति प्रमाणपत्र',
+    'app.name': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति परीक्षा',
     'app.shortName': 'जीपीएचडीएम',
-    'app.tagline': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति परीक्षा प्रमाणपत्र',
+    'app.tagline': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति परीक्षा',
 
     // Navigation
     'nav.home': 'होम',
@@ -244,7 +244,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.admin': 'एडमिन',
 
     // Home Page
-    'home.hero.title': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति परीक्षा प्रमाणपत्र',
+    'home.hero.title': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति परीक्षा',
     'home.hero.missionLine': 'ग्राम पंचायत हेल्प मिशन के माध्यम से',
     'home.hero.production': 'आधिकारिक छात्रवृत्ति पोर्टल',
     'home.hero.subtitle': 'जीपीएचडीएम राष्ट्रीय छात्रवृत्ति के माध्यम से भारत भर के छात्रों को सशक्त बनाना। कक्षा 1-12 परीक्षाओं के लिए अभी पंजीकरण करें।',

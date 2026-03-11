@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Filter, Download, CheckCircle, XCircle, Clock, Search, Image as ImageIcon } from 'lucide-react';
+import { CreditCard, Filter, Download, CheckCircle, XCircle, Clock, Search, Image as ImageIcon, X, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useAuthStore, usePaymentStore, useStudentStore } from '@/stores';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuthStore, usePaymentStore, useStudentStore, usePaymentRequestStore } from '@/stores';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,11 +25,23 @@ export function AdminPaymentsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentAdmin, isAdminLoggedIn } = useAuthStore();
-  const { payments, loadPayments, approvePayment } = usePaymentStore();
+  const { payments, loadPayments, approvePayment, rejectPayment } = usePaymentStore();
   const { students, loadStudents } = useStudentStore();
+  const { paymentRequests, loadPaymentRequests, approvePaymentRequest, rejectPaymentRequest } = usePaymentRequestStore();
 
+  const [activeTab, setActiveTab] = useState<'history' | 'requests'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Reject modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingPaymentId, setRejectingPaymentId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+  
+  // Image preview modal
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
 
   useEffect(() => {
     if (!isAdminLoggedIn || !currentAdmin) {
@@ -35,7 +50,8 @@ export function AdminPaymentsPage() {
     }
     loadPayments();
     loadStudents();
-  }, [isAdminLoggedIn, currentAdmin, navigate, loadPayments, loadStudents]);
+    loadPaymentRequests();
+  }, [isAdminLoggedIn, currentAdmin, navigate, loadPayments, loadStudents, loadPaymentRequests]);
 
   const filteredPayments = payments
     .filter((p) => filterStatus === 'all' || p.status === filterStatus)
@@ -125,6 +141,118 @@ export function AdminPaymentsPage() {
           variant: "destructive"
         });
       }
+    }
+  };
+
+  const handleRejectClick = (paymentId: string) => {
+    setRejectingPaymentId(paymentId);
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectingPaymentId) return;
+    if (!rejectReason.trim()) {
+      toast({
+        title: "Reason Required",
+        description: "Please provide a reason for rejecting this payment.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsRejecting(true);
+    try {
+      const payment = payments.find(p => p.id === rejectingPaymentId);
+      const student = students.find(s => s.id === payment?.studentId);
+      
+      // Use store function
+      await rejectPayment(rejectingPaymentId, rejectReason.trim());
+      
+      toast({
+        title: "Payment Rejected",
+        description: `Payment for ${student?.name || 'Unknown'} has been rejected. Student can re-upload payment proof.`
+      });
+      
+      setShowRejectModal(false);
+      setRejectingPaymentId(null);
+      setRejectReason('');
+    } catch (error) {
+      console.error('Reject error:', error);
+      toast({
+        title: "Rejection Failed",
+        description: "Failed to reject payment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string, studentName: string) => {
+    if (confirm(`Are you sure you want to approve the payment request for ${studentName}?`)) {
+      setIsApproving(true);
+      try {
+        await approvePaymentRequest(requestId);
+        toast({
+          title: "Request Approved",
+          description: `Payment request for ${studentName} has been approved. Student is now ACTIVE.`
+        });
+        loadPaymentRequests();
+      } catch (error) {
+        toast({
+          title: "Approval Failed",
+          description: "Failed to approve request. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsApproving(false);
+      }
+    }
+  };
+
+  const handleRejectRequest = (requestId: string) => {
+    setRejectingPaymentId(requestId);
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleRejectRequestConfirm = async () => {
+    if (!rejectingPaymentId) return;
+    if (!rejectReason.trim()) {
+      toast({
+        title: "Reason Required",
+        description: "Please provide a reason for rejecting this request.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsRejecting(true);
+    try {
+      const request = paymentRequests.find(r => r.id === rejectingPaymentId);
+      const student = students.find(s => s.id === request?.studentId);
+      
+      await rejectPaymentRequest(rejectingPaymentId, rejectReason.trim());
+      
+      toast({
+        title: "Request Rejected",
+        description: `Payment request for ${student?.name || 'Unknown'} has been rejected.`
+      });
+      
+      setShowRejectModal(false);
+      setRejectingPaymentId(null);
+      setRejectReason('');
+      loadPaymentRequests();
+    } catch (error) {
+      console.error('Reject error:', error);
+      toast({
+        title: "Rejection Failed",
+        description: "Failed to reject request. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -218,6 +346,7 @@ export function AdminPaymentsPage() {
                   <TableRow>
                     <TableHead>Student</TableHead>
                     <TableHead className="bg-green-50 text-green-800 font-black">APPROVAL ACTION</TableHead>
+                    <TableHead className="bg-red-50 text-red-800 font-black">REJECT ACTION</TableHead>
                     <TableHead>Transaction ID</TableHead>
                     <TableHead>Proof</TableHead>
                     <TableHead>Class</TableHead>
@@ -255,6 +384,26 @@ export function AdminPaymentsPage() {
                             </div>
                           )}
                         </TableCell>
+                        <TableCell className="bg-red-50/50">
+                          {payment.status === 'PENDING' ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-9 px-4 gap-2 font-black"
+                              onClick={() => handleRejectClick(payment.id)}
+                            >
+                              <XCircle className="size-4" />
+                              REJECT
+                            </Button>
+                          ) : payment.status === 'FAILED' ? (
+                            <div className="flex items-center gap-1 text-red-600 font-bold text-xs">
+                              <XCircle className="size-3" />
+                              REJECTED
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">N/A</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {payment.transactionId ? (
                             <span className="font-mono text-sm font-bold text-blue-600">{payment.transactionId}</span>
@@ -264,15 +413,15 @@ export function AdminPaymentsPage() {
                         </TableCell>
                         <TableCell>
                           {payment.proofUrl ? (
-                            <a
-                              href={payment.proofUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-tighter bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors shadow-sm"
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => setPreviewImage(payment.proofUrl || null)}
                             >
                               <ImageIcon className="size-3" />
                               View Screenshot
-                            </a>
+                            </Button>
                           ) : (
                             <span className="text-muted-foreground text-xs italic">No Proof</span>
                           )}
@@ -292,6 +441,74 @@ export function AdminPaymentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reject Payment Modal */}
+      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <XCircle className="size-5" />
+              Reject Payment
+            </DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this payment. The student will be notified to re-upload payment proof.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejectReason">Rejection Reason</Label>
+              <Textarea
+                id="rejectReason"
+                placeholder="Enter reason for rejection (e.g., invalid transaction, screenshot unclear, amount mismatch)"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRejectConfirm}
+              disabled={isRejecting || !rejectReason.trim()}
+            >
+              {isRejecting ? (
+                <>
+                  <Clock className="size-4 mr-2 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <XCircle className="size-4 mr-2" />
+                  Confirm Rejection
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Modal */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Payment Screenshot Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center">
+            {previewImage && (
+              <img 
+                src={previewImage} 
+                alt="Payment Proof" 
+                className="max-h-[70vh] rounded-lg object-contain" 
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

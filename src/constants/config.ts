@@ -1,8 +1,8 @@
 // Application Configuration
 export const APP_CONFIG = {
-  name: 'GPHDM National Scholarship Certificate',
+  name: 'GPHDM National Scholarship Exam',
   shortName: 'GPHDM',
-  fullName: 'GPHDM National Scholarship Examination Certificate',
+  fullName: 'GPHDM National Scholarship Exam',
   year: 2026,
   organization: 'GPHDM National Scholarship Foundation',
   supportEmail: 'grampanchayat023@gmail.com',
@@ -102,7 +102,7 @@ export const DEFAULT_CERTIFICATE_SETTINGS = {
       sealUrl: '/images/gphdm_logo.png',
       signatureUrl: '/images/director_sig.png',
       sealText: 'GPHDM',
-      institutionName: 'GPHDM National Scholarship Certificate',
+      institutionName: 'GPHDM National Scholarship Exam',
       tagline: 'Excellence in Education',
     },
     modern: {
@@ -112,7 +112,7 @@ export const DEFAULT_CERTIFICATE_SETTINGS = {
       sealUrl: '/images/gphdm_logo.png',
       signatureUrl: '/images/director_sig.png',
       sealText: 'GPHDM',
-      institutionName: 'GPHDM National Scholarship Certificate',
+      institutionName: 'GPHDM National Scholarship Exam',
       tagline: 'Empowering Future Leaders',
     },
     prestigious: {
@@ -122,7 +122,7 @@ export const DEFAULT_CERTIFICATE_SETTINGS = {
       sealUrl: '/images/gphdm_logo.png',
       signatureUrl: '/images/director_sig.png',
       sealText: 'GPHDM',
-      institutionName: 'GPHDM National Scholarship Certificate',
+      institutionName: 'GPHDM National Scholarship Exam',
       tagline: 'Celebrating Academic Excellence',
     },
     gphdm: {
@@ -132,7 +132,7 @@ export const DEFAULT_CERTIFICATE_SETTINGS = {
       sealUrl: '/images/gphdm_logo.png',
       signatureUrl: '/images/director_sig.png',
       sealText: 'GPHDM',
-      institutionName: 'GPHDM National Scholarship Certificate',
+      institutionName: 'GPHDM National Scholarship Exam',
       tagline: 'Empowering Rural Education',
     },
   },

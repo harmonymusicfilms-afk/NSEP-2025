@@ -33,10 +33,29 @@ export interface Payment {
   razorpaySignature?: string;
   proofUrl?: string;
   transactionId?: string;
+  applicationId?: string;
+  adminRemark?: string;
   amount: number;
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   paidAt?: string;
   createdAt: string;
+}
+
+export interface PaymentRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: number;
+  classLevel: number;
+  transactionId: string;
+  proofUrl: string;
+  status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  rejectedReason?: string;
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CenterReward {

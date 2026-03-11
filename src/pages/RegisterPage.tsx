@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GraduationCap, ArrowRight, ArrowLeft, CheckCircle, AlertCircle, FileText, Shield, Users, Gift, Loader2, Copy, Share2, Camera, Upload, X, User, QrCode, Image as ImageIcon, Clock } from 'lucide-react';
+import { GraduationCap, ArrowRight, ArrowLeft, CheckCircle, AlertCircle, FileText, Shield, Users, Gift, Loader2, Copy, Share2, Camera, Upload, X, User, QrCode, Image as ImageIcon, Clock, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useStudentStore, useAuthStore, useReferralStore, usePaymentStore, useCenterRewardStore } from '@/stores';
 import { CLASSES, INDIAN_STATES, getExamFee, APP_CONFIG, POLICY_CONFIG, REFERRAL_CONFIG, RAZORPAY_CONFIG } from '@/constants/config';
@@ -16,6 +18,7 @@ import { STATE_DISTRICTS } from '@/constants/districts';
 import { client as backend } from '@/lib/backend';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PaymentQRCode } from '@/components/ui/PaymentQRCode';
+import { loadRazorpayScript } from '@/constants/razorpay';
 
 // MASTER_REFERRAL_CODE moved to config.ts as APP_CONFIG.masterReferralCode
 
@@ -97,7 +100,11 @@ export function RegisterPage() {
   const [showReferralGate, setShowReferralGate] = useState(false);
   const [manualTransactionId, setManualTransactionId] = useState('');
   const [manualProofUrl, setManualProofUrl] = useState('');
+  const [paymentConfirmationChecked, setPaymentConfirmationChecked] = useState(false);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [submittedApplicationId, setSubmittedApplicationId] = useState('');
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'manual' | 'online'>('manual');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
@@ -494,12 +501,22 @@ export function RegisterPage() {
 
   const handlePayment = async () => {
     if (!pendingStudentId || isProcessingPayment) return;
+    
+    // Validate transaction ID - minimum 10 characters
     if (!manualTransactionId.trim()) {
       toast({ title: "Transaction ID Required", description: "Please enter your payment Transaction ID.", variant: "destructive" });
       return;
     }
+    if (manualTransactionId.trim().length < 10) {
+      toast({ title: "Invalid Transaction ID", description: "Transaction ID must be at least 10 characters.", variant: "destructive" });
+      return;
+    }
     if (!manualProofUrl) {
       toast({ title: "Screenshot Required", description: "Please upload your payment success screenshot.", variant: "destructive" });
+      return;
+    }
+    if (!paymentConfirmationChecked) {
+      toast({ title: "Confirmation Required", description: "Please confirm that you have completed the payment.", variant: "destructive" });
       return;
     }
 
@@ -522,10 +539,14 @@ export function RegisterPage() {
       );
 
       if (updated) {
-        toast({
-          title: 'Payment Submitted! ⏳',
-          description: 'Our admin will verify your payment within 24 hours. You can continue with your profile details now.'
-        });
+        // Generate application ID
+        const appId = `NSEP-${new Date().getTime().toString(36).toUpperCase()}-${pendingStudentId?.slice(0, 8).toUpperCase()}`;
+        setSubmittedApplicationId(appId);
+        
+        // Show success modal
+        setShowApplicationModal(true);
+        
+        // Continue to address step
         setPaymentVerified(true);
         setStep('address');
       }
@@ -1200,10 +1221,23 @@ export function RegisterPage() {
                           <p className="text-[10px] text-muted-foreground">Take a screenshot of your "Payment Successful" message</p>
                         </div>
 
+                        {/* Payment Confirmation Checkbox */}
+                        <div className="flex items-start gap-3 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
+                          <Checkbox
+                            id="paymentConfirmation"
+                            checked={paymentConfirmationChecked}
+                            onCheckedChange={(checked) => setPaymentConfirmationChecked(checked as boolean)}
+                            className="mt-1"
+                          />
+                          <Label htmlFor="paymentConfirmation" className="text-sm text-yellow-800 font-semibold cursor-pointer leading-relaxed">
+                            I confirm that I have completed the payment by scanning the QR code and uploading the payment screenshot.
+                          </Label>
+                        </div>
+
                         <Button
                           className="w-full h-16 rounded-[1.5rem] bg-gradient-to-r from-primary to-accent text-white font-black text-base shadow-[0_0_30px_rgba(33,150,243,0.3)] hover:shadow-[0_0_40px_rgba(33,150,243,0.4)] hover:scale-[1.02] transition-all flex items-center gap-3"
                           onClick={handlePayment}
-                          disabled={isProcessingPayment || isUploadingProof || !manualTransactionId.trim() || !manualProofUrl}
+                          disabled={isProcessingPayment || isUploadingProof || !manualTransactionId.trim() || !manualProofUrl || !paymentConfirmationChecked}
                         >
                           {isProcessingPayment ? (
                             <>
@@ -1823,6 +1857,79 @@ export function RegisterPage() {
           </Link>
         </p>
       </div>
+
+      {/* Payment Submitted Success Modal */}
+      <Dialog open={showApplicationModal} onOpenChange={setShowApplicationModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="size-6" />
+              Payment Submitted Successfully!
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              Your payment proof has been submitted. Our admin will verify your payment within 24–48 hours.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Application ID */}
+            <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-xl border border-primary/20">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Your Application ID</p>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-black text-primary tracking-wider">{submittedApplicationId}</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    navigator.clipboard.writeText(submittedApplicationId);
+                    toast({ title: 'Copied!', description: 'Application ID copied to clipboard.' });
+                  }}
+                >
+                  <Copy className="size-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Status Badge */}
+            <div className="flex items-center justify-center gap-2">
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 px-4 py-2 text-sm">
+                <Clock className="size-4 mr-1 animate-pulse" />
+                Pending Approval
+              </Badge>
+            </div>
+
+            {/* Instructions */}
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p className="font-semibold text-foreground">What's next?</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Continue filling your profile details</li>
+                <li>Check your dashboard for verification status</li>
+                <li>You will receive confirmation after approval</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowApplicationModal(false)}
+            >
+              Continue Registration
+            </Button>
+            <Button 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => {
+                setShowApplicationModal(false);
+                navigate('/login');
+              }}
+            >
+              <Download className="size-4 mr-2" />
+              Login to Track Status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

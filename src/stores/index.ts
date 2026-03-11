@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type {
   Student,
   Payment,
+  PaymentRequest,
   CenterReward,
   Wallet,
   WalletTransaction,
@@ -70,10 +71,29 @@ const mapPayment = (data: any): Payment => ({
   razorpaySignature: data.razorpay_signature,
   proofUrl: data.proof_url,
   transactionId: data.transaction_id,
+  applicationId: data.application_id,
+  adminRemark: data.admin_remark,
   amount: Number(data.amount),
   status: data.status,
   paidAt: data.paid_at,
   createdAt: data.created_at,
+});
+
+const mapPaymentRequest = (data: any): PaymentRequest => ({
+  id: data.id,
+  studentId: data.student_id,
+  studentName: data.student_name,
+  amount: Number(data.amount),
+  classLevel: data.class_level,
+  transactionId: data.transaction_id,
+  proofUrl: data.proof_url,
+  status: data.status,
+  rejectedReason: data.rejected_reason,
+  submittedAt: data.submitted_at,
+  reviewedAt: data.reviewed_at,
+  reviewedBy: data.reviewed_by,
+  createdAt: data.created_at,
+  updatedAt: data.updated_at,
 });
 
 const mapCenterReward = (data: any): CenterReward => ({
@@ -747,6 +767,7 @@ interface PaymentState {
   submitManualPayment: (paymentId: string, transactionId: string, proofUrl: string) => Promise<Payment | null>;
   failPayment: (paymentId: string) => Promise<void>;
   approvePayment: (paymentId: string) => Promise<void>;
+  rejectPayment: (paymentId: string, remark: string) => Promise<void>;
   markPaymentPending: (paymentId: string) => Promise<void>;
   getPaymentsByStudent: (studentId: string) => Payment[];
   hasSuccessfulPayment: (studentId: string) => boolean;
@@ -935,6 +956,33 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     }
   },
 
+  rejectPayment: async (paymentId, remark: string) => {
+    try {
+      const payment = get().payments.find(p => p.id === paymentId);
+      if (!payment) return;
+
+      const { data, error } = await backend
+        .from('payments')
+        .update({
+          status: 'FAILED',
+          admin_remark: remark,
+        })
+        .eq('id', paymentId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const updatedPayment = mapPayment(data);
+
+      set({
+        payments: get().payments.map((p) => (p.id === paymentId ? updatedPayment : p)),
+      });
+    } catch (error) {
+      console.error('Error rejecting payment:', error);
+      throw error;
+    }
+  },
+
   markPaymentPending: async (paymentId) => {
     try {
       const payment = get().payments.find(p => p.id === paymentId);
@@ -974,6 +1022,154 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   getPaymentsByStudent: (studentId) => get().payments.filter((p) => p.studentId === studentId),
   hasSuccessfulPayment: (studentId) =>
     get().payments.some((p) => p.studentId === studentId && p.status === 'SUCCESS'),
+}));
+
+// Payment Request Store (for manual payment submissions)
+interface PaymentRequestState {
+  paymentRequests: PaymentRequest[];
+  isLoading: boolean;
+  loadPaymentRequests: () => Promise<void>;
+  submitPaymentRequest: (studentId: string, amount: number, classLevel: number, transactionId: string, proofUrl: string, studentName: string) => Promise<PaymentRequest | null>;
+  approvePaymentRequest: (requestId: string) => Promise<void>;
+  rejectPaymentRequest: (requestId: string, reason: string) => Promise<void>;
+  getPendingRequests: () => PaymentRequest[];
+  getByStudent: (studentId: string) => PaymentRequest[];
+}
+
+export const usePaymentRequestStore = create<PaymentRequestState>((set, get) => ({
+  paymentRequests: [],
+  isLoading: false,
+
+  loadPaymentRequests: async () => {
+    set({ isLoading: true });
+    try {
+      const { data, error } = await backend
+        .from('payment_requests')
+        .select('*')
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('payment_requests table does not exist');
+          set({ paymentRequests: [] });
+          return;
+        }
+        throw error;
+      }
+      set({ paymentRequests: (data || []).map(mapPaymentRequest) });
+    } catch (error) {
+      console.error('Error loading payment requests:', error);
+      set({ paymentRequests: [] });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  submitPaymentRequest: async (studentId, amount, classLevel, transactionId, proofUrl, studentName) => {
+    try {
+      const { data, error } = await backend
+        .from('payment_requests')
+        .insert([{
+          student_id: studentId,
+          amount,
+          class_level: classLevel,
+          transaction_id: transactionId,
+          proof_url: proofUrl,
+          status: 'PENDING_REVIEW',
+          student_name: studentName,
+        }])
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const request = mapPaymentRequest(data);
+      set({ paymentRequests: [request, ...get().paymentRequests] });
+      return request;
+    } catch (error) {
+      console.error('Error submitting payment request:', error);
+      return null;
+    }
+  },
+
+  approvePaymentRequest: async (requestId) => {
+    try {
+      const request = get().paymentRequests.find(r => r.id === requestId);
+      if (!request) throw new Error('Request not found');
+
+      const adminStore = useAuthStore.getState();
+      const adminId = adminStore.currentAdmin?.id;
+
+      // Update payment request status
+      const { data, error } = await backend
+        .from('payment_requests')
+        .update({
+          status: 'APPROVED',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: adminId,
+        })
+        .eq('id', requestId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const updatedRequest = mapPaymentRequest(data);
+
+      // Create a successful payment record
+      await backend
+        .from('payments')
+        .insert([{
+          student_id: request.studentId,
+          razorpay_order_id: `MANUAL_${requestId}`,
+          amount: request.amount,
+          status: 'SUCCESS',
+          proof_url: request.proofUrl,
+          transaction_id: request.transactionId,
+          paid_at: new Date().toISOString(),
+        }]);
+
+      // Update student status to ACTIVE
+      await useStudentStore.getState().updateStudent(request.studentId, { status: 'ACTIVE' });
+
+      set({
+        paymentRequests: get().paymentRequests.map(r => (r.id === requestId ? updatedRequest : r)),
+      });
+    } catch (error) {
+      console.error('Error approving payment request:', error);
+      throw error;
+    }
+  },
+
+  rejectPaymentRequest: async (requestId, reason) => {
+    try {
+      const adminStore = useAuthStore.getState();
+      const adminId = adminStore.currentAdmin?.id;
+
+      const { data, error } = await backend
+        .from('payment_requests')
+        .update({
+          status: 'REJECTED',
+          rejected_reason: reason,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: adminId,
+        })
+        .eq('id', requestId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const updatedRequest = mapPaymentRequest(data);
+
+      set({
+        paymentRequests: get().paymentRequests.map(r => (r.id === requestId ? updatedRequest : r)),
+      });
+    } catch (error) {
+      console.error('Error rejecting payment request:', error);
+      throw error;
+    }
+  },
+
+  getPendingRequests: () => get().paymentRequests.filter(r => r.status === 'PENDING_REVIEW'),
+  getByStudent: (studentId) => get().paymentRequests.filter(r => r.studentId === studentId),
 }));
 
 // Wallet Store
