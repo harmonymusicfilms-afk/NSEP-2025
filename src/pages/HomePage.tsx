@@ -93,7 +93,7 @@ export function HomePage() {
     {
       icon: Award,
       title: 'Scholarship Awards',
-      description: `Top ${SCHOLARSHIP_CONFIG.eligibleRanks.length} ranks eligible for scholarships up to ${formatCurrency(prizes[1])}`,
+      description: 'Top 100 ranks eligible for scholarships in every class',
     },
     {
       icon: BadgeCheck,
