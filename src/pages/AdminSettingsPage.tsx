@@ -47,14 +47,14 @@ export function AdminSettingsPage() {
   const [fees, setFees] = useState(config.fees);
   const [marksPerCorrect, setMarksPerCorrect] = useState(config.marksPerCorrect);
   const [marksPerWrong, setMarksPerWrong] = useState(config.marksPerWrong);
-  const [scholarshipPrizes, setScholarshipPrizes] = useState<Record<string, number>>(() => {
-    const prizes: Record<string, number> = {};
-    if (config.scholarshipPrizes) {
-      Object.entries(config.scholarshipPrizes).forEach(([rank, amount]) => {
-        prizes[rank] = amount;
+  const [scholarshipAmounts, setScholarshipAmounts] = useState<Record<string, number>>(() => {
+    const amounts: Record<string, number> = {};
+    if (config.scholarshipAmounts) {
+      Object.entries(config.scholarshipAmounts).forEach(([rank, amount]) => {
+        amounts[rank] = amount;
       });
     }
-    return prizes;
+    return amounts;
   });
 
   const [selectedTemplate, setSelectedTemplate] = useState<CertificateTemplate>(settings.defaultTemplate);
@@ -106,12 +106,12 @@ export function AdminSettingsPage() {
       setFees(config.fees);
       setMarksPerCorrect(config.marksPerCorrect);
       setMarksPerWrong(config.marksPerWrong);
-      if (config.scholarshipPrizes) {
-        const prizes: Record<string, number> = {};
-        Object.entries(config.scholarshipPrizes).forEach(([rank, amount]) => {
-          prizes[rank] = amount;
+      if (config.scholarshipAmounts) {
+        const amounts: Record<string, number> = {};
+        Object.entries(config.scholarshipAmounts).forEach(([rank, amount]) => {
+          amounts[rank] = amount;
         });
-        setScholarshipPrizes(prizes);
+        setScholarshipAmounts(amounts);
       }
     }
   }, [config]);
@@ -160,27 +160,27 @@ export function AdminSettingsPage() {
     });
   };
 
-  const handleSaveScholarshipPrizes = () => {
+  const handleSaveScholarshipAmounts = () => {
     // Convert string keys back to numbers for the store
-    const prizesAsNumbers: Record<number, number> = {};
-    Object.entries(scholarshipPrizes).forEach(([rank, amount]) => {
-      prizesAsNumbers[Number(rank)] = amount;
+    const amountsAsNumbers: Record<number, number> = {};
+    Object.entries(scholarshipAmounts).forEach(([rank, amount]) => {
+      amountsAsNumbers[Number(rank)] = amount;
     });
 
-    updateConfig({ scholarshipPrizes: prizesAsNumbers });
+    updateConfig({ scholarshipAmounts: amountsAsNumbers });
 
     if (currentAdmin) {
       addLog(
         currentAdmin.id,
-        'UPDATE_AMOUNTS',
+        'UPDATE_SCHOLARSHIP_AMOUNTS',
         undefined,
-        `AMOUNTS for Ranks 1-10 updated`
+        `Scholarship Amounts for Ranks 1-10 updated`
       );
     }
 
     toast({
-      title: 'AMOUNTS Updated',
-      description: 'AMOUNTS for all ranks have been saved successfully.',
+      title: 'Scholarship Amounts Updated',
+      description: 'Amounts for all ranks have been saved successfully.',
     });
   };
 
@@ -497,7 +497,7 @@ export function AdminSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Award className="size-5 text-amber-600" />
-              AMOUNTS
+              Scholarship Amounts
             </CardTitle>
             <CardDescription>
               Set amount for each eligible rank
@@ -514,9 +514,9 @@ export function AdminSettingsPage() {
                       id={`rank-${rank}`}
                       type="number"
                       min="0"
-                      value={scholarshipPrizes[rank.toString()] || 0}
-                      onChange={(e) => setScholarshipPrizes({
-                        ...scholarshipPrizes,
+                      value={scholarshipAmounts[rank.toString()] || 0}
+                      onChange={(e) => setScholarshipAmounts({
+                        ...scholarshipAmounts,
                         [rank.toString()]: Number(e.target.value)
                       })}
                       className="pl-6 h-8 text-sm"
@@ -528,12 +528,12 @@ export function AdminSettingsPage() {
             </div>
 
             <Button
-              onClick={handleSaveScholarshipPrizes}
+              onClick={handleSaveScholarshipAmounts}
               className="w-full institutional-gradient gap-2 mt-2"
               disabled={!isSuperAdmin}
             >
               <Save className="size-4" />
-              Save AMOUNTS
+              Save Scholarship Amounts
             </Button>
           </CardContent>
         </Card>

@@ -54,7 +54,7 @@ const translations: Record<Language, Record<string, string>> = {
     'home.howItWorks.step4Desc': 'View rank and receive certificate',
     'home.centerCode.title': 'Earn with CenterCode Referral Program',
     'home.centerCode.subtitle': 'Join our referral network and earn rewards for every successful registration.',
-    'home.scholarship.title': 'AMOUNTS',
+    'home.scholarship.title': 'Scholarship Amounts',
     'home.scholarship.subtitle': 'Top performers in each class receive attractive scholarships.',
     'home.cta.title': 'Ready to Begin Your Journey?',
     'home.cta.subtitle': 'Join thousands of students across India.',

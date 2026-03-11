@@ -53,7 +53,7 @@ export function HomePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { config, loadExamData } = useExamStore();
-  const prizes = config.scholarshipPrizes || SCHOLARSHIP_CONFIG.defaultAmounts;
+  const prizes = config.scholarshipAmounts || SCHOLARSHIP_CONFIG.defaultAmounts;
 
   useEffect(() => {
     const refCode = searchParams.get('ref');

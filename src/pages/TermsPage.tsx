@@ -265,7 +265,7 @@ export function TermsPage() {
               <h3 className="font-semibold mb-3">4.2 Authority Rights (प्राधिकरण के अधिकार)</h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
                 <li>{APP_CONFIG.organization} reserves all rights to modify terms without prior notice.</li>
-                <li>The organization may update examination donations, scholarship amounts, and policies.</li>
+                <li>The organization may update examination donations, Scholarship Amounts, and policies.</li>
                 <li>User accounts may be suspended or terminated for policy violations.</li>
                 <li>Content and intellectual property rights belong to {APP_CONFIG.shortName}.</li>
               </ul>
@@ -307,7 +307,7 @@ export function TermsPage() {
                 <li>{APP_CONFIG.shortName} shall not be liable for indirect, incidental, or consequential damages.</li>
                 <li>No liability for technical failures beyond reasonable control.</li>
                 <li>Maximum liability limited to the registration donation paid.</li>
-                <li>No warranty on scholarship amounts or result outcomes.</li>
+                <li>No warranty on Scholarship Amounts or result outcomes.</li>
               </ul>
             </div>
           </CardContent>

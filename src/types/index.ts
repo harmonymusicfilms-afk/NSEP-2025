@@ -182,7 +182,7 @@ export interface ExamConfigSettings {
   fees: Record<string, number>;
   marksPerCorrect: number;
   marksPerWrong: number;
-  scholarshipPrizes: Record<number, number>;
+  scholarshipAmounts: Record<number, number>;
 }
 
 // Form Types

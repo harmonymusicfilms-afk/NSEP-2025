@@ -1611,7 +1611,7 @@ export const useExamStore = create<ExamState>((set, get) => ({
     fees: EXAM_FEES,
     marksPerCorrect: EXAM_CONFIG.marksPerCorrect,
     marksPerWrong: EXAM_CONFIG.marksPerWrong,
-    scholarshipPrizes: SCHOLARSHIP_CONFIG.defaultAmounts as Record<number, number>,
+    scholarshipAmounts: SCHOLARSHIP_CONFIG.defaultAmounts as Record<number, number>,
   },
   sessions: [],
   results: [],
@@ -1693,7 +1693,7 @@ export const useExamStore = create<ExamState>((set, get) => ({
           fees: configData[0].fees,
           marksPerCorrect: configData[0].marks_per_correct,
           marksPerWrong: configData[0].marks_per_wrong,
-          scholarshipPrizes: configData[0].scholarship_prizes || SCHOLARSHIP_CONFIG.defaultAmounts,
+          scholarshipAmounts: configData[0].scholarship_amounts || SCHOLARSHIP_CONFIG.defaultAmounts,
         } : get().config,
         sessions: [...(sessionData.map(mapExamSession)), ...localSessions],
         results: [...(resultData.map(mapExamResult)), ...localResults],
@@ -1719,7 +1719,7 @@ export const useExamStore = create<ExamState>((set, get) => ({
         fees: config.fees,
         marks_per_correct: config.marksPerCorrect,
         marks_per_wrong: config.marksPerWrong,
-        scholarship_prizes: config.scholarshipPrizes,
+        scholarship_amounts: config.scholarshipAmounts,
       };
       const { error } = await backend.from('exam_config').upsert([dbConfig]);
       if (error) throw error;

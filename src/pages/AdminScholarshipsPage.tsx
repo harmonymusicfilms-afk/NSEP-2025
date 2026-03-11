@@ -37,7 +37,7 @@ export function AdminScholarshipsPage() {
   const { toast } = useToast();
   const { currentAdmin, isAdminLoggedIn } = useAuthStore();
   const { students, loadStudents } = useStudentStore();
-  const { results, loadExamData } = useExamStore();
+  const { config, results, loadExamData } = useExamStore();
   const { scholarships, loadScholarships, approveScholarship, rejectScholarship } = useScholarshipStore();
   const { generateCertificate } = useCertificateStore();
   const { templates, loadEmailData, sendEmail } = useEmailStore();
@@ -54,17 +54,17 @@ export function AdminScholarshipsPage() {
     loadEmailData();
   }, [isAdminLoggedIn, currentAdmin, navigate, loadStudents, loadExamData, loadScholarships, loadEmailData]);
 
-  const handleApprove = (scholarshipId: string, studentId: string, rank: number) => {
+  const handleApprove = async (scholarshipId: string, studentId: string, rank: number) => {
     if (!currentAdmin) return;
 
-    const amount = (config.scholarshipPrizes && config.scholarshipPrizes[rank]) || SCHOLARSHIP_CONFIG.defaultAmounts[rank] || 0;
+    const amount = (config.scholarshipAmounts && config.scholarshipAmounts[rank]) || SCHOLARSHIP_CONFIG.defaultAmounts[rank] || 0;
     const examResult = results.find((r) => r.studentId === studentId);
 
     approveScholarship(scholarshipId, currentAdmin.id, 'BOTH', amount);
     addLog(currentAdmin.id, 'APPROVE_SCHOLARSHIP', scholarshipId, `Approved scholarship rank ${rank} for student ${studentId}`);
 
     if (examResult) {
-      const certificate = generateCertificate(studentId, examResult.id, rank <= 3 ? 'SCHOLARSHIP' : 'MERIT');
+      const certificate = await generateCertificate(studentId, examResult.id, rank <= 3 ? 'SCHOLARSHIP' : 'MERIT');
 
       // Auto-send email with default template
       const defaultTemplate = templates.find((t) => t.isDefault);
@@ -171,7 +171,7 @@ export function AdminScholarshipsPage() {
             <TableBody>
               {scholarships.map((scholarship) => {
                 const student = students.find((s) => s.id === scholarship.studentId);
-                const defaultAmount = (config.scholarshipPrizes && config.scholarshipPrizes[scholarship.rank]) || SCHOLARSHIP_CONFIG.defaultAmounts[scholarship.rank] || 0;
+                const defaultAmount = (config.scholarshipAmounts && config.scholarshipAmounts[scholarship.rank]) || SCHOLARSHIP_CONFIG.defaultAmounts[scholarship.rank] || 0;
 
                 return (
                   <TableRow key={scholarship.id}>
