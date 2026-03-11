@@ -1696,8 +1696,9 @@ export function RegisterPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <h2 className="text-3xl font-serif font-bold text-foreground">Registration Successful!</h2>
-                      <p className="text-muted-foreground">Welcome to the NSEP 2026 community.</p>
+                      <h2 className="text-4xl font-serif font-black premium-text-gradient uppercase tracking-tighter">THANK YOU!</h2>
+                      <h3 className="text-xl font-bold text-foreground">Registration Successful!</h3>
+                      <p className="text-muted-foreground font-semibold italic">Welcome to the NSEP 2026 community.</p>
                     </div>
 
                     <Card className="border-2 border-primary/20 bg-primary/5 shadow-inner">
@@ -1892,12 +1893,13 @@ export function RegisterPage() {
       <Dialog open={showApplicationModal} onOpenChange={setShowApplicationModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-700">
-              <CheckCircle className="size-6" />
-              Payment Submitted Successfully!
+            <DialogTitle className="flex items-center gap-2 text-green-700 text-2xl font-black italic">
+              <CheckCircle className="size-8" />
+              THANK YOU!
             </DialogTitle>
-            <DialogDescription className="text-base">
-              Your payment proof has been submitted. Our admin will verify your payment within 24–48 hours.
+            <DialogDescription className="text-base font-bold text-foreground">
+              धन्यवाद! आपका भुगतान सफलतापूर्वक जमा हो गया है। <br />
+              <span className="text-sm text-muted-foreground font-normal">Your payment proof has been submitted. Our admin will verify it within 24–48 hours.</span>
             </DialogDescription>
           </DialogHeader>
           

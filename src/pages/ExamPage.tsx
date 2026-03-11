@@ -198,8 +198,8 @@ export function ExamPage() {
               }
 
               toast({
-                title: 'Payment Successful! ✅',
-                description: 'Exam unlocked. Good luck!',
+                title: 'THANK YOU! / धन्यवाद! ✅',
+                description: 'Payment Successful. Your exam is now unlocked. Good luck!',
               });
               setPhase('ready');
             } else {
