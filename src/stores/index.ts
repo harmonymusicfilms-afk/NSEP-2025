@@ -612,7 +612,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         id: userId,
         name: data.name,
         father_name: data.fatherName,
-        class: data.class,
+        class_level: data.class,   // original schema column name
         mobile: data.mobile,
         email: data.email,
         school_name: data.schoolName,
@@ -625,7 +625,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         photo_url: data.photoUrl || null,
         center_code: centerCode,
         referral_code: referralCode,
-        referred_by_center: data.referredByCenter || null,
+        referred_by_center_code: data.referredByCenter || null,  // original column name
         referred_by_student: data.referredByStudent || null,
         status: 'PENDING',
       };
@@ -670,7 +670,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       const dbUpdate: any = { ...data };
       if (data.name) dbUpdate.name = data.name;
       if (data.fatherName) dbUpdate.father_name = data.fatherName;
-      if (data.class) dbUpdate.class = data.class;
+      if (data.class) dbUpdate.class_level = data.class;  // original column name
       if (data.schoolName) dbUpdate.school_name = data.schoolName;
       if (data.schoolContact) dbUpdate.school_contact = data.schoolContact;
       if (data.addressVillage) dbUpdate.address_village = data.addressVillage;
@@ -679,7 +679,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       if (data.addressDistrict) dbUpdate.address_district = data.addressDistrict;
       if (data.addressState) dbUpdate.address_state = data.addressState;
       if (data.photoUrl !== undefined) dbUpdate.photo_url = data.photoUrl;
-      if (data.referredByCenter) dbUpdate.referred_by_center = data.referredByCenter;
+      if (data.referredByCenter) dbUpdate.referred_by_center_code = data.referredByCenter;  // original column name
       if (data.referredByStudent) dbUpdate.referred_by_student = data.referredByStudent;
 
       // Remove frontend-only keys
