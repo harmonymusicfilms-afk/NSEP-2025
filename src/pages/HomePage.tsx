@@ -457,24 +457,7 @@ export function HomePage() {
                 </div>
               </div>
 
-              <div className="space-y-6 mb-10">
-                {[
-                  { icon: IndianRupee, title: 'Center Rewards', val: REFERRAL_CONFIG.centerCodeReward, text: 'text-primary', bg: 'bg-primary/10' },
-                  { icon: Shield, title: 'Admin Rewards', val: REFERRAL_CONFIG.adminCenterReward, text: 'text-accent', bg: 'bg-accent/10' }
-                ].map((reward, i) => (
-                  <div key={i} className="flex items-center gap-6 bg-secondary/20 p-6 rounded-xl border border-border">
-                    <div className={`size-14 ${reward.bg} rounded-lg flex items-center justify-center`}>
-                      <reward.icon className={`size-7 ${reward.text}`} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-lg text-foreground mb-1">{reward.title}</h4>
-                      <p className="text-muted-foreground">
-                        Earn <strong className={`${reward.text} text-xl font-bold px-1`}>{formatCurrency(reward.val)}</strong> per referral
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+
 
               <div className="flex flex-wrap gap-4">
                 <Link to="/center-registration">
