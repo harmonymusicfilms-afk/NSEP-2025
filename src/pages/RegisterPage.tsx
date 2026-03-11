@@ -285,21 +285,11 @@ export function RegisterPage() {
       newErrors.mobile = 'Invalid mobile number (10 digits required)';
     }
 
-    // Email - must be unique, no duplicate profiles allowed
+    // Email check - simplified (Auth will catch duplicates and we handle resume flow there)
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!isValidEmail(formData.email)) {
       newErrors.email = 'Invalid email format';
-    } else {
-      try {
-        const existing = await getStudentByEmail(formData.email.trim().toLowerCase());
-        if (existing) {
-          newErrors.email = 'This email is already registered. Please use a different email or login.';
-        }
-      } catch (e) {
-        // If RLS blocks the check, backend auth.signUp will catch duplicate anyway
-        console.warn('Email duplicate check failed (RLS), will rely on backend auth:', e);
-      }
     }
 
     if (!formData.password?.trim()) {
@@ -386,8 +376,10 @@ export function RegisterPage() {
       let userId = authData?.user?.id;
 
       if (authError) {
-        // If user already exists, try to sign in instead to resume
-        if (authError.message?.toLowerCase().includes('already registered')) {
+        const lowerMsg = authError.message?.toLowerCase() || '';
+        if (lowerMsg.includes('already registered') || 
+            lowerMsg.includes('already exists') || 
+            lowerMsg.includes('already in use')) {
           const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
             email: formData.email,
             password: formData.password || 'password123',
