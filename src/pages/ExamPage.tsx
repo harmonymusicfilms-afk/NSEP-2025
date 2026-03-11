@@ -33,7 +33,7 @@ import {
   useCenterRewardStore,
   useStudentStore,
 } from '@/stores';
-import { getExamFee, EXAM_CONFIG, REFERRAL_CONFIG } from '@/constants/config';
+import { getExamFee, EXAM_CONFIG, REFERRAL_CONFIG, APP_CONFIG } from '@/constants/config';
 import { formatCurrency, formatTime, generatePaymentId } from '@/lib/utils';
 
 type ExamPhase = 'approval' | 'payment' | 'ready' | 'exam' | 'gap' | 'completed';
@@ -231,8 +231,11 @@ export function ExamPage() {
         toast({
           variant: 'destructive',
           title: 'Payment Failed',
-          description: response.error.description
+          description: response.error.description + '. Redirecting to manual payment...',
         });
+        setTimeout(() => {
+          window.open(APP_CONFIG.paymentLink, '_blank');
+        }, 2000);
         setIsProcessingPayment(false);
       });
 
@@ -240,11 +243,12 @@ export function ExamPage() {
 
     } catch (error: any) {
       console.error('Payment Error:', error);
+      // Fallback to manual link if automated checkout fails
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Payment initiation failed.',
+        title: 'Redirecting to Payment',
+        description: 'Opening Razorpay payment page...',
       });
+      window.open(APP_CONFIG.paymentLink, '_blank');
       setIsProcessingPayment(false);
     }
   };
@@ -437,7 +441,7 @@ export function ExamPage() {
                 <Button
                   variant="outline"
                   className="w-full h-14 border-2 border-primary/20 hover:bg-primary/5 text-primary font-black gap-2"
-                  onClick={() => window.open('https://razorpay.me/@grampanchayathelpdeskmission', '_blank')}
+                  onClick={() => window.open(APP_CONFIG.paymentLink, '_blank')}
                 >
                   <CreditCard className="size-5" />
                   Pay via Razorpay Link

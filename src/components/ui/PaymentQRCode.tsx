@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Loader2 } from 'lucide-react';
+import { APP_CONFIG } from '@/constants/config';
 
 interface PaymentQRCodeProps {
   amount: number;
@@ -13,7 +14,7 @@ interface PaymentQRCodeProps {
 
 export function PaymentQRCode({
   amount,
-  upiId = 'razorpay.me/@grampanchayathelpdeskmission',
+  upiId = APP_CONFIG.paymentLink,
   merchantName = 'GRAM PANCHAYAT HELP DESK MISSION',
   transactionRef = 'NSEP2026',
   className = '',
@@ -30,11 +31,16 @@ export function PaymentQRCode({
     try {
       setIsLoading(true);
       
-      // Create UPI deep link
-      const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&tr=${transactionRef}&am=${amount}&cu=INR`;
+      // Create link based on whether upiId is a URL or a VPA
+      let paymentLink = '';
+      if (upiId.includes('razorpay.me') || upiId.startsWith('http')) {
+        paymentLink = upiId.startsWith('http') ? upiId : `https://${upiId}`;
+      } else {
+        paymentLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&tr=${transactionRef}&am=${amount}&cu=INR`;
+      }
       
       // Generate QR code as data URL
-      const dataUrl = await QRCode.toDataURL(upiLink, {
+      const dataUrl = await QRCode.toDataURL(paymentLink, {
         width: size,
         margin: 2,
         color: {
@@ -77,7 +83,7 @@ export function PaymentQRCode({
 // Export a hook for getting UPI link
 export function getUPILink(
   amount: number,
-  upiId: string = 'razorpay.me/@grampanchayathelpdeskmission',
+  upiId: string = APP_CONFIG.paymentLink,
   merchantName: string = 'GRAM PANCHAYAT HELP DESK MISSION',
   transactionRef: string = 'NSEP2026'
 ): string {

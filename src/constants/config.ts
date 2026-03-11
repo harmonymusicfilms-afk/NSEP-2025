@@ -9,6 +9,7 @@ export const APP_CONFIG = {
   supportPhone: '+91 9120057559',
   notificationGroupUrl: 'https://wa.me/919120057559',
   masterReferralCode: 'GPHDM2026',
+  paymentLink: 'https://razorpay.me/@grampanchayathelpdeskmission',
 } as const;
 
 // Class-wise Exam Fees (Admin Configurable)

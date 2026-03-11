@@ -1031,7 +1031,7 @@ export function RegisterPage() {
                                 className="flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded border border-green-200 hover:bg-white transition-all cursor-pointer shadow-sm group/link"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  window.open('https://razorpay.me/@grampanchayathelpdeskmission', '_blank');
+                                  window.open(APP_CONFIG.paymentLink, '_blank');
                                 }}
                               >
                                 <Shield className="size-2.5 text-green-700" />
@@ -1167,7 +1167,7 @@ export function RegisterPage() {
                           <h4 className="text-lg font-bold">Pay via Razorpay Link</h4>
                           <Button 
                             className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl gap-2 shadow-lg shadow-primary/20"
-                            onClick={() => window.open('https://razorpay.me/@grampanchayathelpdeskmission', '_blank')}
+                            onClick={() => window.open(APP_CONFIG.paymentLink, '_blank')}
                           >
                             <CreditCard className="size-5" />
                             Open Razorpay Page
