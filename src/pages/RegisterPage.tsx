@@ -1155,6 +1155,30 @@ export function RegisterPage() {
 
                       {/* Form Section */}
                       <div className="flex-1 w-full max-w-md space-y-6">
+                        {/* Razorpay Link Button */}
+                        <div className="bg-primary/5 border-2 border-primary/20 p-6 rounded-[2rem] text-center space-y-4 shadow-sm hover:shadow-md transition-all">
+                          <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">Fastest Method</p>
+                          <h4 className="text-lg font-bold">Pay via Razorpay Link</h4>
+                          <Button 
+                            className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl gap-2 shadow-lg shadow-primary/20"
+                            onClick={() => window.open('https://razorpay.me/@grampanchayathelpdeskmission', '_blank')}
+                          >
+                            <CreditCard className="size-5" />
+                            Open Razorpay Page
+                            <ArrowRight className="size-4" />
+                          </Button>
+                          <p className="text-[10px] text-muted-foreground italic">Accepts UPI, Cards, NetBanking, & Wallets</p>
+                        </div>
+
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-border"></span>
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-4 text-muted-foreground font-black tracking-widest">OR SCAN & SUBMIT</span>
+                          </div>
+                        </div>
+
                         <div className="space-y-3">
                           <Label htmlFor="transactionId" className="text-muted-foreground font-black uppercase tracking-widest text-[11px] ml-1 flex items-center gap-2">
                             <span className="size-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">1</span>

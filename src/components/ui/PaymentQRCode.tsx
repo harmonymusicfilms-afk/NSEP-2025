@@ -13,7 +13,7 @@ interface PaymentQRCodeProps {
 
 export function PaymentQRCode({
   amount,
-  upiId = 'Vyapar.175692887286@hdfcbank',
+  upiId = 'razorpay.me/@grampanchayathelpdeskmission',
   merchantName = 'GRAM PANCHAYAT HELP DESK MISSION',
   transactionRef = 'NSEP2026',
   className = '',
@@ -77,7 +77,7 @@ export function PaymentQRCode({
 // Export a hook for getting UPI link
 export function getUPILink(
   amount: number,
-  upiId: string = 'Vyapar.175692887286@hdfcbank',
+  upiId: string = 'razorpay.me/@grampanchayathelpdeskmission',
   merchantName: string = 'GRAM PANCHAYAT HELP DESK MISSION',
   transactionRef: string = 'NSEP2026'
 ): string {
