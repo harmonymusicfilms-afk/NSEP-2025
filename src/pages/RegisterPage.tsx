@@ -439,11 +439,7 @@ export function RegisterPage() {
         toast({ title: 'Welcome back!', description: 'Resuming your registration.' });
       } else {
         setStep('payment');
-        // Automatically trigger Razorpay after a slightly longer delay to ensure state and student record are ready
-        setTimeout(() => {
-          handleRazorpayCheckout();
-        }, 500);
-        toast({ title: 'Profile Created ✓', description: 'Opening secure payment gateway...' });
+        toast({ title: 'Profile Created ✓', description: 'Please complete your payment to proceed.' });
       }
 
 
@@ -465,79 +461,16 @@ export function RegisterPage() {
     if (!pendingStudentId || isProcessingPayment) return;
 
     setIsProcessingPayment(true);
-    const examFee = getExamFee(formData.class);
-
+    
     try {
-      // 1. Create Payment Order
-      const payment = await createPayment(pendingStudentId, examFee);
-      if (!payment) throw new Error('Failed to initiate payment.');
-
-      // 2. Open Razorpay Checkout
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || RAZORPAY_CONFIG.key_id,
-        amount: examFee * 100, // in paise
-        currency: 'INR',
-        name: APP_CONFIG.organization,
-        description: `National Scholarship Exam Fee - Class ${formData.class}`,
-        image: '/favicon.ico',
-        order_id: payment.razorpayOrderId,
-        handler: async function (response: any) {
-          try {
-            // 3. Verify Payment
-            const verified = await verifyPayment(
-              payment.id,
-              response.razorpay_payment_id,
-              response.razorpay_signature
-            );
-
-            if (verified) {
-              setPaymentVerified(true);
-              setStep('address');
-              toast({
-                title: 'THANK YOU! / धन्यवाद! ✅',
-                description: 'Payment Successful. Please continue filling your address and photo.'
-              });
-            } else {
-              throw new Error('Payment verification failed.');
-            }
-          } catch (err: any) {
-            console.error('Verification Error:', err);
-            toast({ variant: 'destructive', title: 'Error', description: err.message });
-          }
-        },
-        prefill: {
-          name: formData.name,
-          email: formData.email,
-          contact: formData.mobile,
-        },
-        theme: {
-          color: '#2563EB', // Primary color
-        },
-        modal: {
-          ondismiss: function () {
-            setIsProcessingPayment(false);
-          }
-        }
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', function (response: any) {
-        console.error('Payment Failed:', response.error);
-        toast({
-          variant: 'destructive',
-          title: 'Payment Failed',
-          description: response.error.description || 'Transaction declined.',
-        });
-        setIsProcessingPayment(false);
-      });
-      rzp.open();
-
+      // Redirect to the external payment link
+      window.location.href = 'https://razorpay.me/@grampanchayathelpdeskmission';
     } catch (error: any) {
-      console.error('Checkout Error:', error);
+      console.error('Redirect Error:', error);
       toast({
         variant: 'destructive',
-        title: 'Payment Error',
-        description: error.message || 'Failed to start Razorpay checkout.',
+        title: 'Redirect Error',
+        description: 'Failed to open payment page.',
       });
       setIsProcessingPayment(false);
     }
@@ -1128,14 +1061,31 @@ export function RegisterPage() {
                               {formatCurrency(getExamFee(formData.class))}
                             </div>
 
-                            <div className="w-full h-24 bg-primary/10 border-2 border-primary/20 rounded-2xl flex flex-col items-center justify-center gap-1 group/btn relative overflow-hidden">
-                              <div className="absolute inset-0 bg-primary/5 animate-pulse"></div>
-                              <div className="relative z-10 flex items-center gap-2 text-primary font-black">
-                                <Loader2 className="size-5 animate-spin" />
-                                <span className="text-lg">Payment in Progress</span>
+                            <button
+                              onClick={handleRazorpayCheckout}
+                              className="w-full h-24 bg-primary text-white border-2 border-primary/20 rounded-2xl flex flex-col items-center justify-center gap-1 group/btn relative overflow-hidden hover:bg-primary/90 transition-all shadow-lg active:scale-95"
+                            >
+                              <div className="relative z-10 flex items-center gap-2 font-black">
+                                <CreditCard className="size-6" />
+                                <span className="text-xl uppercase tracking-wider">Pay Fee Now</span>
                               </div>
-                              <p className="relative z-10 text-[10px] text-primary/60 font-bold uppercase tracking-widest">Completing Secure Transaction</p>
-                            </div>
+                              <p className="relative z-10 text-[10px] text-white/80 font-bold uppercase tracking-widest">Click to open Secure Gateway</p>
+                            </button>
+
+                            <Button 
+                              variant="outline" 
+                              onClick={() => {
+                                setPaymentVerified(true);
+                                setStep('address');
+                                toast({
+                                  title: 'Registration Continued',
+                                  description: 'Please complete your details and photo upload.',
+                                });
+                              }}
+                              className="w-full border-green-200 text-green-700 hover:bg-green-50 font-bold"
+                            >
+                              I have completed payment <ArrowRight className="ml-2 size-4" />
+                            </Button>
 
                             <div className="flex items-center justify-center gap-4 pt-4 opacity-60">
 
