@@ -1605,7 +1605,7 @@ interface ExamState {
 
 export const useExamStore = create<ExamState>((set, get) => ({
   config: {
-    timePerQuestion: EXAM_CONFIG.defaultTimePerQuestion as 5 | 7,
+    timePerQuestion: EXAM_CONFIG.defaultTimePerQuestion,
     demoQuestionCount: EXAM_CONFIG.demoQuestionCount,
     gapBetweenQuestions: EXAM_CONFIG.gapBetweenQuestions,
     fees: EXAM_FEES,

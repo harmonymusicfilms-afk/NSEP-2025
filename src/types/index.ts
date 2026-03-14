@@ -176,7 +176,7 @@ export interface AdminLog {
 }
 
 export interface ExamConfigSettings {
-  timePerQuestion: 5 | 7;
+  timePerQuestion: number; // 5-10 seconds configurable
   demoQuestionCount: number;
   gapBetweenQuestions: number;
   fees: Record<string, number>;

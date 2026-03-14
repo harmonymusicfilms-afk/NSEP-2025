@@ -120,7 +120,7 @@ export function AdminSettingsPage() {
 
   const handleSaveExamSettings = () => {
     updateConfig({
-      timePerQuestion: timePerQuestion as 5 | 7,
+      timePerQuestion: timePerQuestion,
       demoQuestionCount,
       gapBetweenQuestions,
       marksPerCorrect,
@@ -323,10 +323,16 @@ export function AdminSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="timePerQuestion">Time Per Question</Label>
+              <Label htmlFor="timePerQuestion">Time Per Question (5-10 seconds)</Label>
               <Select
                 value={timePerQuestion.toString()}
-                onValueChange={(val) => setTimePerQuestion(Number(val) as 5 | 7)}
+                onValueChange={(val) => {
+                  const numVal = Number(val);
+                  // Validate: only allow values between 5 and 10
+                  if (numVal >= 5 && numVal <= 10) {
+                    setTimePerQuestion(numVal);
+                  }
+                }}
                 disabled={!isSuperAdmin}
               >
                 <SelectTrigger id="timePerQuestion">
@@ -334,14 +340,16 @@ export function AdminSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="5">5 seconds</SelectItem>
+                  <SelectItem value="6">6 seconds</SelectItem>
                   <SelectItem value="7">7 seconds</SelectItem>
+                  <SelectItem value="8">8 seconds</SelectItem>
+                  <SelectItem value="9">9 seconds</SelectItem>
                   <SelectItem value="10">10 seconds</SelectItem>
-                  <SelectItem value="15">15 seconds</SelectItem>
-                  <SelectItem value="20">20 seconds</SelectItem>
-                  <SelectItem value="30">30 seconds</SelectItem>
-                  <SelectItem value="60">60 seconds</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Timer will automatically apply to all questions during exam
+              </p>
             </div>
 
             <div className="space-y-2">

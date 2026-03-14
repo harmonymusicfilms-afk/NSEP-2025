@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GraduationCap, ArrowRight, ArrowLeft, CheckCircle, AlertCircle, FileText, Shield, Users, Gift, Loader2, Copy, Share2, Camera, Upload, X, User, QrCode, Image as ImageIcon, Clock, Download } from 'lucide-react';
+import { GraduationCap, ArrowRight, ArrowLeft, CheckCircle, AlertCircle, FileText, Shield, Users, Gift, Loader2, Copy, Share2, Camera, Upload, X, User, QrCode, Image as ImageIcon, Clock, Download, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -372,9 +372,9 @@ export function RegisterPage() {
 
       if (authError) {
         const lowerMsg = authError.message?.toLowerCase() || '';
-        if (lowerMsg.includes('already registered') || 
-            lowerMsg.includes('already exists') || 
-            lowerMsg.includes('already in use')) {
+        if (lowerMsg.includes('already registered') ||
+          lowerMsg.includes('already exists') ||
+          lowerMsg.includes('already in use')) {
           const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
             email: formData.email,
             password: formData.password || 'password123',
@@ -463,7 +463,7 @@ export function RegisterPage() {
 
   const handleRazorpayCheckout = async () => {
     if (!pendingStudentId || isProcessingPayment) return;
-    
+
     setIsProcessingPayment(true);
     const examFee = getExamFee(formData.class);
 
@@ -493,9 +493,9 @@ export function RegisterPage() {
             if (verified) {
               setPaymentVerified(true);
               setStep('address');
-              toast({ 
-                title: 'THANK YOU! / धन्यवाद! ✅', 
-                description: 'Payment Successful. Please continue filling your address and photo.' 
+              toast({
+                title: 'THANK YOU! / धन्यवाद! ✅',
+                description: 'Payment Successful. Please continue filling your address and photo.'
               });
             } else {
               throw new Error('Payment verification failed.');
@@ -1113,12 +1113,12 @@ export function RegisterPage() {
                           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <CreditCard className="size-24 -rotate-12" />
                           </div>
-                          
+
                           <div className="relative z-10 space-y-4">
                             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border border-primary/20">
                               Payment Method
                             </div>
-                            
+
                             <div className="space-y-1">
                               <h4 className="text-2xl font-black text-foreground uppercase tracking-tight">Exam Registration</h4>
                               <p className="text-sm text-muted-foreground font-semibold italic">Class {formData.class} Scholorship Foundation</p>
@@ -1155,7 +1155,7 @@ export function RegisterPage() {
                             </p>
                           </div>
                         </div>
-                        
+
                         <div className="space-y-2 text-[10px] text-muted-foreground p-4 bg-secondary/10 rounded-2xl border border-border">
                           <p className="font-bold flex items-center gap-2">
                             <span className="size-4 rounded-full bg-primary/20 text-primary flex items-center justify-center">?</span>
@@ -1176,7 +1176,7 @@ export function RegisterPage() {
                             <Clock className="size-6 text-primary animate-pulse" />
                             Registration Process
                           </h4>
-                          
+
                           <div className="space-y-6">
                             <div className="flex gap-4">
                               <div className="flex flex-col items-center">
@@ -1722,15 +1722,15 @@ export function RegisterPage() {
               <span className="text-sm text-muted-foreground font-normal">Your payment proof has been submitted. Our admin will verify it within 24–48 hours.</span>
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Application ID */}
             <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-xl border border-primary/20">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Your Application ID</p>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black text-primary tracking-wider">{submittedApplicationId}</span>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => {
@@ -1763,13 +1763,13 @@ export function RegisterPage() {
           </div>
 
           <DialogFooter className="sm:justify-between">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowApplicationModal(false)}
             >
               Continue Registration
             </Button>
-            <Button 
+            <Button
               className="bg-green-600 hover:bg-green-700"
               onClick={() => {
                 setShowApplicationModal(false);
