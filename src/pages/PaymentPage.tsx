@@ -1,420 +1,307 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuthStore, usePaymentRequestStore } from '@/stores';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CreditCard, CheckCircle, ArrowRight, GraduationCap, Shield, LogIn, Copy, Share2, Download, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Image as ImageIcon, Loader2, CheckCircle, AlertCircle, Copy, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useStudentStore, useAuthStore, usePaymentStore } from '@/stores';
+import { APP_CONFIG, getExamFee } from '@/constants/config';
+import { formatCurrency } from '@/lib/utils';
 import { client as backend } from '@/lib/backend';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
-const PAYMENT_CONFIG = {
-  upiId: 'gphdm2025@okaxis', // Change this to actual UPI ID
-  bankName: 'Axis Bank',
-  accountName: 'GPHDM National Scholarship Exam',
-  accountNumber: '9234567890XXXXXX',
-  ifscCode: 'UTIB0002345',
-  bankAddress: 'Main Branch, Lucknow, Uttar Pradesh',
-};
-
-interface PaymentPageProps {
-  studentId: string;
-  studentName: string;
-  amount: number;
-  className: string;
-  onPaymentSubmitted?: (paymentRequestId: string) => void;
-}
-
-export function PaymentPage({ studentId, studentName, amount, className, onPaymentSubmitted }: PaymentPageProps) {
-  const navigate = useNavigate();
+export function PaymentPage() {
+  const [searchParams] = useSearchParams();
+  const studentId = searchParams.get('studentId');
+  const [student, setStudent] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  
   const { toast } = useToast();
-  const { currentStudent } = useAuthStore();
+  const navigate = useNavigate();
+  const { getStudentById, updateStudent } = useStudentStore();
+  const { createPayment } = usePaymentStore();
 
-  const [transactionId, setTransactionId] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [qrCode, setQrCode] = useState<string>('');
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedPaymentId, setSubmittedPaymentId] = useState<string>('');
-
-  // Generate QR code using online service
-  React.useEffect(() => {
-    const upiString = `upi://pay?pa=${PAYMENT_CONFIG.upiId}&pn=${encodeURIComponent(PAYMENT_CONFIG.accountName)}&am=${amount}`;
-    // Use a simple QR code generation service
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiString)}`;
-    setQrCode(qrUrl);
-  }, [amount]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Screenshot must be less than 5MB',
-        variant: 'destructive',
-      });
-      return;
+  useEffect(() => {
+    async function fetchStudent() {
+      if (!studentId) {
+        navigate('/register');
+        return;
+      }
+      const data = await getStudentById(studentId);
+      if (!data) {
+        navigate('/register');
+        return;
+      }
+      setStudent(data);
+      setIsLoading(false);
     }
+    fetchStudent();
+  }, [studentId, getStudentById, navigate]);
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please upload an image file',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setProofFile(file);
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreviewUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!transactionId.trim()) {
-      toast({
-        title: 'Transaction ID required',
-        description: 'Please enter the transaction ID from your payment',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!proofFile) {
-      toast({
-        title: 'Screenshot required',
-        description: 'Please upload a screenshot of the payment proof',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
+  const handlePayRedirect = async () => {
+    if (!student) return;
+    
+    setIsProcessing(true);
     try {
-      // Upload proof file to storage
-      const fileName = `payment-proofs/${studentId}-${Date.now()}-${proofFile.name}`;
-      const { data: uploadData, error: uploadError } = await backend.storage
-        .from('payment-proofs')
-        .upload(fileName, proofFile);
-
-      if (uploadError) {
-        throw new Error(uploadError.message || 'Failed to upload proof');
-      }
-
-      // Get public URL
-      const { data: publicUrl } = backend.storage.from('payment-proofs').getPublicUrl(fileName);
-      const proofUrl = publicUrl?.publicUrl || '';
-
-      // Create payment request in database
-      const { data: paymentData, error: paymentError } = await backend.database.from('payment_requests').insert([
-        {
-          student_id: studentId,
-          amount: amount,
-          class_level: className,
-          transaction_id: transactionId,
-          proof_url: proofUrl,
-          status: 'PENDING_REVIEW',
-          submitted_at: new Date().toISOString(),
-          student_name: studentName,
-        },
-      ]).select();
-
-      if (paymentError) {
-        throw new Error(paymentError.message || 'Failed to create payment request');
-      }
-
-      const paymentId = paymentData?.[0]?.id;
-      setSubmittedPaymentId(paymentId);
-      setSubmitted(true);
-
-      toast({
-        title: 'Payment submitted',
-        description: 'Your payment proof has been submitted for verification. You will receive confirmation within 24 hours.',
-      });
-
-      if (onPaymentSubmitted && paymentId) {
-        onPaymentSubmitted(paymentId);
-      }
+      // Record the attempt in payments table (optional but good for tracking)
+      await createPayment(student.id, getExamFee(student.class));
+      
+      // Redirect to Razorpay hosted page
+      window.location.href = 'https://razorpay.me/@grampanchayathelpdeskmission';
+      
+      // After redirecting, the user will be away. 
+      // When they come back (manually or via redirect if configured in Razorpay), 
+      // they can click a "Payment Completed" button on this page.
     } catch (error) {
-      console.error('Payment submission error:', error);
+      console.error('Payment redirect error:', error);
       toast({
-        title: 'Submission failed',
-        description: error instanceof Error ? error.message : 'Failed to submit payment proof',
+        title: 'Error',
+        description: 'Failed to initiate payment. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
     }
   };
 
-  if (submitted) {
+  const handleConfirmPayment = async () => {
+    setIsProcessing(true);
+    try {
+      // In a real app, we would verify with Razorpay API here.
+      // For this flow, we mark as PAID as requested.
+      await updateStudent(student.id, { status: 'ACTIVE' });
+      
+      // Update local student state
+      setStudent({ ...student, status: 'ACTIVE' });
+      
+      setShowSuccessPopup(true);
+      toast({
+        title: 'Payment Confirmed! ✅',
+        description: 'Your registration is now complete.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update payment status.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: `${label} Copied`, description: 'Copied to clipboard.' });
+  };
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="w-12 h-12 text-green-600" />
-            </div>
-            <CardTitle className="text-center">Payment Submitted</CardTitle>
-            <CardDescription className="text-center">Your payment has been submitted successfully</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-              <p className="text-sm font-medium text-gray-700">Submission Details</p>
-              <div className="space-y-1 text-sm">
-                <p className="text-gray-600">
-                  <span className="font-semibold">Student:</span> {studentName}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-semibold">Amount:</span> ₹{amount}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-semibold">Status:</span> <span className="text-yellow-600 font-semibold">Pending Review</span>
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-semibold">Request ID:</span> {submittedPaymentId.slice(0, 8)}...
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
-              <p className="text-sm text-amber-800">
-                <AlertCircle className="inline w-4 h-4 mr-2" />
-                Your payment will be verified within 24 hours. Check your email for confirmation.
-              </p>
-            </div>
-
-            <Button onClick={() => navigate('/student/dashboard')} className="w-full">
-              Go to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="size-10 animate-spin text-primary" />
       </div>
     );
   }
 
+  const examFee = getExamFee(student?.class || 0);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 py-8">
+    <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <Button variant="outline" onClick={() => navigate(-1)} className="mb-4">
-            ← Back
-          </Button>
+        {/* Header */}
+        <div className="text-center mb-12">
+          <Link to="/" className="inline-flex items-center gap-3 text-primary mb-6 group bg-primary/10 px-6 py-2 rounded-full border border-primary/20 backdrop-blur-md">
+            <GraduationCap className="size-8" />
+            <span className="text-2xl font-black text-foreground tracking-tighter">{APP_CONFIG.shortName}</span>
+          </Link>
+          <h1 className="text-4xl lg:text-5xl font-black text-foreground mb-4 tracking-tight">
+            Final Step: <span className="text-primary">Payment</span>
+          </h1>
+          <p className="text-lg text-muted-foreground font-bold italic max-w-xl mx-auto">
+            Please complete your examination fee to activate your enrollment.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Left Column - Payment Details */}
-          <div className="space-y-4">
-            {/* QR Code */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">UPI Payment QR Code</CardTitle>
-                <CardDescription>Scan with any UPI app to pay</CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                {qrCode ? (
-                  <img src={qrCode} alt="UPI QR Code" className="w-64 h-64 border-4 border-gray-200 rounded-lg p-2" />
-                ) : (
-                  <div className="w-64 h-64 bg-gray-200 rounded-lg animate-pulse" />
-                )}
-              </CardContent>
-            </Card>
+        <div className="grid lg:grid-cols-2 gap-8 items-start">
+          {/* Main Payment Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="rounded-[2.5rem] border-border shadow-2xl overflow-hidden">
+              <div className="p-8 bg-primary/5 border-b border-border">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20">
+                    <CreditCard className="size-8 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-foreground tracking-tight">Payment Summary</h2>
+                    <p className="text-sm text-muted-foreground font-bold italic">Safe & Secure Transaction</p>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="p-8 space-y-8">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-background rounded-2xl border border-border">
+                    <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Student Name</span>
+                    <span className="font-black text-foreground">{student.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-background rounded-2xl border border-border">
+                    <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Class Selected</span>
+                    <span className="font-black text-foreground">Class {student.class}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-6 institutional-gradient rounded-2xl border border-primary/20 shadow-lg">
+                    <div className="text-white">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Examination Fee</p>
+                      <p className="text-3xl font-black">{formatCurrency(examFee)}</p>
+                    </div>
+                    <Shield className="size-10 text-white/50" />
+                  </div>
+                </div>
 
-            {/* UPI ID */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">UPI ID</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 bg-gray-100 p-3 rounded-lg">
-                  <code className="flex-1 font-mono text-sm font-semibold text-gray-800">{PAYMENT_CONFIG.upiId}</code>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      navigator.clipboard.writeText(PAYMENT_CONFIG.upiId);
-                      toast({ title: 'Copied to clipboard' });
-                    }}
+                <div className="space-y-4 pt-4">
+                  <Button 
+                    onClick={handlePayRedirect}
+                    disabled={isProcessing}
+                    className="w-full h-16 rounded-2xl bg-primary text-white font-black text-lg shadow-[0_0_20px_rgba(33,150,243,0.3)] hover:scale-[1.02] transition-transform flex gap-3"
                   >
-                    <Copy className="w-4 h-4" />
+                    {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard className="size-6" />}
+                    Pay with Razorpay
                   </Button>
+                  
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-4">Already paid on Razorpay?</p>
+                    <Button 
+                      variant="outline"
+                      onClick={handleConfirmPayment}
+                      disabled={isProcessing}
+                      className="w-full h-14 rounded-2xl border-green-200 text-green-700 hover:bg-green-50 font-black"
+                    >
+                      I have completed my payment <ArrowRight className="ml-2 size-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-6 pt-4 opacity-50 grayscale hover:grayscale-0 transition-all">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" alt="UPI" className="h-4" />
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/d/d1/RuPay.svg" alt="RuPay" className="h-4" />
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3" />
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
 
-            {/* Order Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Student Name:</span>
-                  <span className="font-semibold">{studentName}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Class:</span>
-                  <span className="font-semibold">{className}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">Exam Fee:</span>
-                  <span className="font-semibold">₹{amount}</span>
-                </div>
-                <div className="flex justify-between py-2 text-lg font-bold text-indigo-600 bg-indigo-50 p-2 rounded-lg">
-                  <span>Total Amount:</span>
-                  <span>₹{amount}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Bank Details & Form */}
-          <div className="space-y-4">
-            {/* Bank Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Bank Transfer Details</CardTitle>
-                <CardDescription>Alternative payment method</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
-                  <div>
-                    <Label className="text-xs text-gray-600">Bank Name</Label>
-                    <p className="font-semibold">{PAYMENT_CONFIG.bankName}</p>
+          {/* Info Side */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-6"
+          >
+            <div className="bg-gradient-to-br from-background to-secondary/20 p-8 rounded-[2.5rem] border border-border">
+              <h3 className="text-xl font-black text-foreground mb-6 flex items-center gap-3 tracking-tight">
+                <Shield className="size-6 text-primary" />
+                Why Hosted Payment?
+              </h3>
+              <ul className="space-y-6">
+                <li className="flex gap-4">
+                  <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                    <span className="text-primary font-black text-xs">01</span>
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">Account Name</Label>
-                    <p className="font-semibold">{PAYMENT_CONFIG.accountName}</p>
+                    <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Enhanced Security</p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">Transactions are processed directly on Razorpay's bank-grade secure infrastructure.</p>
+                  </div>
+                </li>
+                <li className="flex gap-4">
+                  <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                    <span className="text-primary font-black text-xs">02</span>
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">Account Number</Label>
-                    <div className="flex items-center gap-2">
-                      <code className="font-mono text-sm font-semibold">{PAYMENT_CONFIG.accountNumber}</code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(PAYMENT_CONFIG.accountNumber);
-                          toast({ title: 'Copied to clipboard' });
-                        }}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Zero Downtime</p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">Direct connection reduces server load, ensuring your payment is never stuck.</p>
+                  </div>
+                </li>
+                <li className="flex gap-4">
+                  <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                    <span className="text-primary font-black text-xs">03</span>
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-600">IFSC Code</Label>
-                    <div className="flex items-center gap-2">
-                      <code className="font-mono text-sm font-semibold">{PAYMENT_CONFIG.ifscCode}</code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(PAYMENT_CONFIG.ifscCode);
-                          toast({ title: 'Copied to clipboard' });
-                        }}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Instant Activation</p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">Once you confirm, your credentials will be generated instantly.</p>
                   </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">Bank Address</Label>
-                    <p className="text-sm">{PAYMENT_CONFIG.bankAddress}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Proof Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Upload Payment Proof</CardTitle>
-                <CardDescription>After making the payment</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Preview */}
-                  {previewUrl && (
-                    <div className="relative bg-gray-100 rounded-lg p-2 flex justify-center">
-                      <img src={previewUrl} alt="Preview" className="max-h-40 rounded" />
-                    </div>
-                  )}
-
-                  {/* File Upload */}
-                  <div>
-                    <Label htmlFor="proof-upload" className="text-sm font-medium">
-                      Screenshot of Payment
-                    </Label>
-                    <input
-                      id="proof-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      disabled={isSubmitting}
-                      className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Max 5MB • JPG, PNG or WEBP</p>
-                    {proofFile && <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> {proofFile.name}</p>}
-                  </div>
-
-                  {/* Transaction ID */}
-                  <div>
-                    <Label htmlFor="transaction-id" className="text-sm font-medium">
-                      Transaction ID / Reference Number
-                    </Label>
-                    <Input
-                      id="transaction-id"
-                      placeholder="e.g., UPI123456789 or UTR Number"
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value)}
-                      disabled={isSubmitting}
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Found in your payment confirmation SMS/email</p>
-                  </div>
-
-                  {/* Submit Button */}
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || !proofFile || !transactionId.trim()}
-                    className="w-full"
-                  >
-                    {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {isSubmitting ? 'Submitting...' : 'Submit Payment Proof'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Help */}
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm text-blue-800">
-              <p className="font-semibold mb-2">Need Help?</p>
-              <ul className="space-y-1 text-xs">
-                <li>• Make payment via UPI or bank transfer</li>
-                <li>• Take a screenshot of the payment confirmation</li>
-                <li>• Note the transaction ID from your bank</li>
-                <li>• Upload the screenshot and enter transaction ID</li>
-                <li>• Your payment will be verified within 24 hours</li>
+                </li>
               </ul>
             </div>
-          </div>
+
+            <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 flex gap-4">
+              <AlertCircle className="size-6 text-blue-600 shrink-0 mt-1" />
+              <p className="text-xs text-blue-800 font-medium leading-relaxed">
+                After successful payment on Razorpay, please return to this page and click the <strong>"I have completed my payment"</strong> button to receive your login credentials.
+              </p>
+            </div>
+          </motion.div>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessPopup} onOpenChange={setShowSuccessPopup}>
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none bg-background shadow-3xl">
+          <div className="p-8 pb-0 flex flex-col items-center text-center">
+            <div className="size-20 bg-green-100 rounded-[1.5rem] flex items-center justify-center mb-6 shadow-inner">
+              <CheckCircle className="size-12 text-green-600" />
+            </div>
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-3xl font-black text-foreground tracking-tight">Registration Successful!</DialogTitle>
+              <DialogDescription className="text-base font-bold italic text-muted-foreground">
+                Welcome to {APP_CONFIG.organization}. Your account is now active.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="p-8 space-y-4">
+            <div className="p-6 bg-secondary/20 rounded-3xl border border-border space-y-4">
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Login User ID (ID)</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 h-12 bg-background border border-border rounded-xl flex items-center px-4 font-mono font-bold text-foreground truncate">
+                    {student?.email}
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(student?.email, 'User ID')} className="h-12 w-12 rounded-xl">
+                    <Copy className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Password (HIDDEN)</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 h-12 bg-background border border-border rounded-xl flex items-center px-4 font-mono font-bold text-foreground">
+                    ••••••••
+                  </div>
+                  <div className="text-[10px] text-green-600 font-black flex items-center gap-1 uppercase tracking-widest bg-green-50 px-3 rounded-xl border border-green-100">
+                    <Shield className="size-3" /> Secure
+                  </div>
+                </div>
+                <p className="text-[9px] text-muted-foreground italic ml-1">* Use the password you created during form submission.</p>
+              </div>
+            </div>
+
+            <Button 
+              onClick={() => navigate('/login')}
+              className="w-full h-16 rounded-2xl institutional-gradient text-white font-black text-lg shadow-[0_0_20px_rgba(255,165,0,0.3)] hover:scale-[1.02] transition-transform"
+            >
+              Go to Login Page <LogIn className="ml-2 size-5" />
+            </Button>
+            
+            <p className="text-center text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+              Need help? Contact {APP_CONFIG.supportEmail}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -160,8 +160,8 @@ export function StudentDashboard() {
 
   const getNextStep = () => {
     if (currentStudent.status === 'PENDING') {
-      if (hasPaid) return { action: 'Finish Profile', link: '/register', urgent: true };
-      return { action: 'Complete Registration', link: '/register', urgent: true };
+      if (hasPaid) return { action: 'Activate Account', link: '/dashboard', urgent: true };
+      return { action: 'Complete Payment', link: `/payment?studentId=${currentStudent.id}`, urgent: true };
     }
     return { action: 'View Results', link: '/dashboard/results', urgent: false };
   };
@@ -424,11 +424,11 @@ export function StudentDashboard() {
             </div>
             <div className="p-8 space-y-4 flex-1">
               {currentStudent.status === 'PENDING' && (
-                <Link to="/register" className="block">
+                <Link to={`/payment?studentId=${currentStudent.id}`} className="block">
                   <Button className="w-full h-14 rounded-2xl justify-between gap-3 institutional-gradient px-6 font-black uppercase text-xs tracking-widest transition-transform hover:scale-[1.02]">
                     <span className="flex items-center gap-3">
                       <ArrowRight className="size-5" />
-                      {hasPaid ? 'Finish Profile' : 'Complete Entry'}
+                      {hasPaid ? 'Verify Payment' : 'Pay Fee Now'}
                     </span>
                   </Button>
                 </Link>
@@ -495,9 +495,9 @@ export function StudentDashboard() {
                       ? "Exam donation validated! Access link established. Finalize your scholar profile (address & school details) to authorize full exam access."
                       : "Authorize your entry. Complete the registration sequence and process the donation to activate your scholastic mission."}
                   </p>
-                  <Link to="/register">
+                  <Link to={`/payment?studentId=${currentStudent.id}`}>
                     <Button size="lg" className="rounded-2xl h-14 px-10 institutional-gradient font-black uppercase tracking-widest text-xs">
-                      {hasPaid ? 'Finalize Profile' : 'Begin Activation'}
+                      {hasPaid ? 'Verify Payment' : 'Pay Activation Fee'}
                     </Button>
                   </Link>
                 </div>

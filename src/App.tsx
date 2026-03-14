@@ -5,6 +5,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 // Pages
 import { HomePage } from '@/pages/HomePage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { PaymentPage } from '@/pages/PaymentPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { StudentDashboard } from '@/pages/StudentDashboard';
 import { StudentResultsPage } from '@/pages/StudentResultsPage';
@@ -58,6 +59,7 @@ function App() {
           <Route element={<PublicLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/payment" element={<PaymentPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/update-password" element={<UpdatePasswordPage />} />
