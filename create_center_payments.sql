@@ -1,0 +1,1 @@
+"CREATE TABLE IF NOT EXISTS public.center_payments ( id uuid DEFAULT uuid_generate_v4() PRIMARY KEY, center_id uuid REFERENCES public.centers(id) ON DELETE CASCADE, razorpay_order_id VARCHAR(255) NOT NULL, razorpay_payment_id VARCHAR(255), amount INTEGER NOT NULL, status VARCHAR(50) NOT NULL DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT NOW() );" 

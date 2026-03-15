@@ -1,0 +1,237 @@
+5:create extension if not exists "uuid-ossp";
+8:create table if not exists public.students (
+10:    name text not null,
+11:    father_name text not null,
+12:    class_level integer not null,
+13:    mobile text not null unique,
+14:    email text not null unique,
+15:    school_name text not null,
+16:    school_contact text not null,
+17:    address_village text not null,
+18:    address_block text not null,
+19:    address_tahsil text not null,
+20:    address_district text not null,
+21:    address_state text not null,
+23:    center_code text unique not null,
+27:    status text not null default 'PENDING' check (status in ('ACTIVE', 'BLOCKED', 'PENDING')),
+28:    mobile_verified boolean default false,
+29:    email_verified boolean default false,
+30:    created_at timestamptz default now(),
+35:create table if not exists public.centers (
+37:    name text not null,
+38:    owner_name text not null,
+39:    email text not null unique,
+40:    phone text not null unique,
+41:    address text not null,
+42:    state text not null,
+43:    district text not null,
+44:    center_code text unique not null,
+45:    status text not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'BLOCKED')),
+50:    created_at timestamptz default now(),
+55:create table if not exists public.admin_users (
+57:    name text not null,
+58:    email text not null unique,
+59:    role text not null default 'MODERATOR' check (role in ('SUPER_ADMIN', 'ADMIN', 'MODERATOR')),
+60:    created_at timestamptz default now(),
+66:create table if not exists public.payments (
+68:    student_id uuid references public.students(id) on delete cascade not null,
+69:    razorpay_order_id text not null,
+72:    amount decimal(10, 2) not null,
+73:    status text not null default 'PENDING' check (status in ('PENDING', 'SUCCESS', 'FAILED')),
+75:    created_at timestamptz default now()
+79:create table if not exists public.wallets (
+81:    student_id uuid references public.students(id) on delete cascade unique not null,
+82:    balance decimal(10, 2) default 0 not null,
+83:    created_at timestamptz default now(),
+88:create table if not exists public.wallet_transactions (
+90:    wallet_id uuid references public.wallets(id) on delete cascade not null,
+91:    type text not null check (type in ('CENTER_REWARD', 'SCHOLARSHIP_CREDIT', 'ADMIN_ADJUSTMENT', 'WITHDRAWAL')),
+92:    amount decimal(10, 2) not null,
+93:    reason text not null,
+95:    created_at timestamptz default now()
+99:create table if not exists public.exam_questions (
+101:    class_level integer not null,
+102:    question_text text not null,
+103:    options text[] not null, -- Array of strings for options
+104:    correct_option_index integer not null,
+106:    created_at timestamptz default now(),
+111:create table if not exists public.exam_sessions (
+113:    student_id uuid references public.students(id) on delete cascade not null,
+114:    class_level integer not null,
+118:    status text not null default 'IN_PROGRESS' check (status in ('IN_PROGRESS', 'COMPLETED', 'ABANDONED')),
+120:    created_at timestamptz default now()
+124:create table if not exists public.exam_results (
+126:    student_id uuid references public.students(id) on delete cascade not null,
+127:    class_level integer not null,
+128:    total_score integer not null,
+129:    correct_count integer not null,
+130:    wrong_count integer not null,
+131:    unanswered_count integer not null,
+132:    total_time_taken integer not null,
+134:    result_status text not null default 'PENDING' check (result_status in ('PENDING', 'PUBLISHED')),
+135:    created_at timestamptz default now()
+139:create table if not exists public.scholarships (
+141:    student_id uuid references public.students(id) on delete cascade not null,
+142:    class_level integer not null,
+143:    rank integer not null,
+144:    scholarship_type text not null check (scholarship_type in ('AMOUNT', 'CERTIFICATE', 'BOTH')),
+146:    approval_status text not null default 'PENDING' check (approval_status in ('PENDING', 'APPROVED', 'REJECTED')),
+150:    created_at timestamptz default now()
+153:-- 11. Certificates Table
+154:create table if not exists public.certificates (
+156:    student_id uuid references public.students(id) on delete cascade not null,
+157:    exam_result_id uuid references public.exam_results(id) on delete cascade not null,
+158:    certificate_id_display text unique not null, -- The readable ID (e.g., NSEP-2024-XXXX)
+159:    certificate_type text not null check (certificate_type in ('PARTICIPATION', 'MERIT', 'SCHOLARSHIP')),
+161:    qr_code_url text not null,
+164:    created_at timestamptz default now()
+168:create table if not exists public.referral_codes (
+170:    code text unique not null,
+171:    type text not null check (type in ('ADMIN_CENTER', 'CENTER_CODE')),
+172:    owner_id uuid not null, -- Student ID (for center code) or Admin ID
+173:    owner_name text not null,
+174:    reward_amount decimal(10, 2) not null,
+178:    created_at timestamptz default now(),
+179:    created_by uuid references auth.users(id)
+183:create table if not exists public.referral_logs (
+185:    referral_code_id uuid references public.referral_codes(id) on delete cascade not null,
+186:    referral_code text not null,
+187:    referrer_id uuid not null,
+188:    referrer_role text not null check (referrer_role in ('ADMIN', 'CENTER')),
+190:    new_user_name text not null,
+191:    amount decimal(10, 2) not null,
+192:    status text not null default 'PENDING' check (status in ('PENDING', 'CREDITED', 'BLOCKED')),
+194:    created_at timestamptz default now()
+198:create table if not exists public.center_rewards (
+200:    center_owner_student_id uuid references public.students(id) on delete cascade not null,
+201:    new_student_id uuid references public.students(id) on delete cascade not null,
+202:    payment_id uuid references public.payments(id) on delete cascade not null,
+203:    reward_amount decimal(10, 2) not null,
+204:    status text not null default 'PENDING' check (status in ('PENDING', 'CREDITED', 'FAILED')),
+205:    created_at timestamptz default now()
+209:create table if not exists public.consent_logs (
+211:    user_id uuid not null, -- Student or Center ID
+212:    user_type text not null check (user_type in ('STUDENT', 'CENTER')),
+213:    ip_address text not null,
+214:    policy_version text not null,
+222:create table if not exists public.contact_submissions (
+224:    name text not null,
+225:    email text not null,
+226:    phone text not null,
+227:    subject text not null,
+228:    message text not null,
+229:    status text not null default 'NEW' check (status in ('NEW', 'READ', 'REPLIED')),
+232:    created_at timestamptz default now()
+236:create table if not exists public.admin_logs (
+238:    admin_id uuid references public.admin_users(id) on delete cascade not null,
+239:    action text not null,
+242:    created_at timestamptz default now()
+246:create table if not exists public.email_templates (
+248:    name text not null,
+249:    subject text not null,
+250:    body_html text not null,
+251:    variables text[] not null, -- e.g., ['studentName', 'rank']
+253:    created_at timestamptz default now(),
+258:create table if not exists public.email_deliveries (
+260:    student_id uuid references public.students(id) on delete cascade not null,
+261:    certificate_id uuid references public.certificates(id) on delete set null,
+263:    recipient_email text not null,
+264:    subject text not null,
+265:    status text not null default 'PENDING' check (status in ('PENDING', 'SENT', 'FAILED', 'RETRY')),
+271:    created_at timestamptz default now()
+275:create table if not exists public.batch_email_jobs (
+277:    name text not null,
+279:    student_ids uuid[] not null,
+283:    status text not null default 'PENDING' check (status in ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
+286:    created_at timestamptz default now()
+290:create table if not exists public.gallery_items (
+292:    title text not null,
+294:    image_url text not null,
+295:    category text not null check (category in ('CEREMONY', 'TOPPERS', 'EVENTS', 'OTHER')),
+298:    created_at timestamptz default now()
+301:-- 22. Certificate Settings Table
+302:create table if not exists public.certificate_settings (
+304:    default_template text not null default 'CLASSIC',
+305:    classic_config jsonb not null default '{}'::jsonb,
+306:    modern_config jsonb not null default '{}'::jsonb,
+307:    prestigious_config jsonb not null default '{}'::jsonb,
+317:create or replace function public.handle_new_student()
+332:drop trigger if exists on_student_created on public.students;
+333:create trigger on_student_created
+339:create or replace function public.handle_payment_success()
+350:    if new.status = 'SUCCESS' and (old.status is null or old.status != 'SUCCESS') then
+357:        if v_referred_by_code is not null then
+364:            if v_referral_code_id is not null then
+382:                -- Credit the referrer's wallet (if they are a center/student)
+383:                if v_referrer_role = 'CENTER_CODE' or v_referrer_role = 'CENTER' then
+396:                end if;
+397:            end if;
+398:        end if;
+399:    end if;
+405:drop trigger if exists on_payment_success on public.payments;
+406:create trigger on_payment_success
+412:create or replace function public.get_admin_dashboard_stats()
+424:        'certificatesIssued', (select count(*) from public.certificates),
+434:create or replace function public.get_class_wise_stats()
+455:-- Enable RLS on all tables
+456:alter table public.students enable row level security;
+457:alter table public.centers enable row level security;
+458:alter table public.admin_users enable row level security;
+459:alter table public.payments enable row level security;
+460:alter table public.wallets enable row level security;
+461:alter table public.wallet_transactions enable row level security;
+462:alter table public.exam_questions enable row level security;
+463:alter table public.exam_sessions enable row level security;
+464:alter table public.exam_results enable row level security;
+465:alter table public.scholarships enable row level security;
+466:alter table public.certificates enable row level security;
+467:alter table public.referral_codes enable row level security;
+468:alter table public.referral_logs enable row level security;
+469:alter table public.center_rewards enable row level security;
+470:alter table public.consent_logs enable row level security;
+471:alter table public.contact_submissions enable row level security;
+472:alter table public.admin_logs enable row level security;
+473:alter table public.email_templates enable row level security;
+474:alter table public.email_deliveries enable row level security;
+475:alter table public.batch_email_jobs enable row level security;
+476:alter table public.gallery_items enable row level security;
+477:alter table public.certificate_settings enable row level security;
+480:create policy "Students can view their own profile" on public.students
+483:create policy "Admins can view all students" on public.students
+484:    for select using (exists (select 1 from public.admin_users where id = auth.uid()));
+486:create policy "Admins can update students" on public.students
+487:    for update using (exists (select 1 from public.admin_users where id = auth.uid()));
+489:create policy "Public can register" on public.students
+493:create policy "Centers can view their own rewards" on public.center_rewards
+496:create policy "Admins can view all rewards" on public.center_rewards
+497:    for select using (exists (select 1 from public.admin_users where id = auth.uid()));
+500:create policy "Students can view their own wallet" on public.wallets
+503:create policy "Admins can view all wallets" on public.wallets
+504:    for select using (exists (select 1 from public.admin_users where id = auth.uid()));
+507:create policy "Students can manage their own sessions" on public.exam_sessions
+510:create policy "Admins can view all sessions" on public.exam_sessions
+511:    for select using (exists (select 1 from public.admin_users where id = auth.uid()));
+514:create policy "Anyone can view questions during exam" on public.exam_questions
+517:create policy "Admins can manage questions" on public.exam_questions
+518:    for all using (exists (select 1 from public.admin_users where id = auth.uid()));
+520:-- Helper function to check if a user is super admin safely
+521:create or replace function public.is_super_admin()
+524:  return exists (
+532:create policy "Admins can view their own entry" on public.admin_users
+535:create policy "Super Admins can view all admins" on public.admin_users
+539:create policy "Anyone can submit contact form" on public.contact_submissions
+542:create policy "Admins can view contact submissions" on public.contact_submissions
+543:    for select using (exists (select 1 from public.admin_users where id = auth.uid()));
+546:create policy "Admins can manage email system" on public.email_templates
+547:    for all using (exists (select 1 from public.admin_users where id = auth.uid()));
+549:create policy "Admins can view deliveries" on public.email_deliveries
+550:    for select using (exists (select 1 from public.admin_users where id = auth.uid()));
+552:create policy "Admins can manage batch jobs" on public.batch_email_jobs
+553:    for all using (exists (select 1 from public.admin_users where id = auth.uid()));
+556:create policy "Anyone can view gallery" on public.gallery_items
+559:create policy "Admins can manage gallery" on public.gallery_items
+560:    for all using (exists (select 1 from public.admin_users where id = auth.uid()));
+562:-- Policies for Certificate Settings
+563:create policy "Admins can manage certificate settings" on public.certificate_settings
+564:    for all using (exists (select 1 from public.admin_users where id = auth.uid()));
+566:create policy "Anyone can view settings" on public.certificate_settings
