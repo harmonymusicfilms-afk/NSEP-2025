@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Building2, User, MapPin, Phone, Mail, ArrowRight, CheckCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Building2, User, MapPin, Phone, Mail, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { client as backend } from '@/lib/backend';
+import { loadRazorpayScript, RAZORPAY_CONFIG } from '@/constants/razorpay';
 
 export function SimpleCenterRegistrationPage() {
     const { toast } = useToast();
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [isPaymentPending, setIsPaymentPending] = useState(false);
     const [generatedCode, setGeneratedCode] = useState('');
+    const [razorpayOrderId, setRazorpayOrderId] = useState('');
 
     const [formData, setFormData] = useState({
         centerName: '',
@@ -41,7 +45,8 @@ export function SimpleCenterRegistrationPage() {
             // Generate simple code
             const code = 'CTR' + Math.floor(1000 + Math.random() * 9000);
 
-            const { error } = await backend.from('centers').insert([{
+            // First, register the center with pending payment status
+            const { error: registerError } = await backend.from('centers').insert([{
                 center_name: formData.centerName,
                 center_type: formData.centerType,
                 owner_name: formData.ownerName,
@@ -55,13 +60,14 @@ export function SimpleCenterRegistrationPage() {
                 pincode: formData.pincode,
                 center_code: code,
                 status: 'PENDING',
+                payment_status: 'unpaid',
             }]);
 
-            if (error) {
-                console.error('Error:', error);
+            if (registerError) {
+                console.error('Registration Error:', registerError);
                 toast({
                     title: 'Error',
-                    description: error.message,
+                    description: registerError.message,
                     variant: 'destructive',
                 });
                 setIsLoading(false);
@@ -69,11 +75,113 @@ export function SimpleCenterRegistrationPage() {
             }
 
             setGeneratedCode(code);
-            setIsSuccess(true);
-            toast({
-                title: 'Success',
-                description: 'Center registered successfully!',
+
+            // Create Razorpay order for ₹500 (50000 paisa)
+            const { data: orderData, error: orderError } = await backend.functions.invoke('create-razorpay-order', {
+                body: {
+                    amount: 50000, // ₹500 in paisa
+                    currency: 'INR',
+                    receipt: `center_${code}`,
+                    notes: {
+                        center_code: code,
+                        center_name: formData.centerName,
+                        owner_email: formData.ownerEmail
+                    }
+                }
             });
+
+            if (orderError) {
+                console.error('Order Creation Error:', orderError);
+                toast({
+                    title: 'Error',
+                    description: 'Failed to create payment order. Please try again.',
+                    variant: 'destructive',
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            setIsPaymentPending(true);
+            setRazorpayOrderId(orderData.id);
+
+            // Load Razorpay script and open payment modal
+            const razorpayLoaded = await loadRazorpayScript();
+            if (!razorpayLoaded) {
+                throw new Error('Failed to load Razorpay script');
+            }
+
+            // @ts-ignore - Razorpay is loaded globally
+            const razorpayInstance = new (window as any).Razorpay({
+                key: RAZORPAY_CONFIG.keyId,
+                amount: 50000,
+                currency: 'INR',
+                name: RAZORPAY_CONFIG.name,
+                description: RAZORPAY_CONFIG.description,
+                image: RAZORPAY_CONFIG.logo,
+                order_id: orderData.id,
+                handler: async (response: any) => {
+                    // Handle successful payment
+                    try {
+                        // Verify payment signature on backend
+                        const { data: verifyData, error: verifyError } = await backend.functions.invoke('verify-razorpay-payment', {
+                            body: {
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature
+                            }
+                        });
+
+                        if (verifyError) {
+                            throw verifyError;
+                        }
+
+                        // Update payment status in centers table
+                        await backend.from('centers')
+                            .update({ payment_status: 'paid', status: 'active' })
+                            .eq('center_code', code);
+
+                        // Save payment details
+                        await backend.from('center_payments').insert([{
+                            center_id: (await backend.from('centers').select('id').eq('center_code', code).single()).data.id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            amount: 500,
+                            status: 'success'
+                        }]);
+
+                        setIsPaymentPending(false);
+                        // Navigate to success page
+                        navigate(`/center/payment-success?centerCode=${code}`, { replace: true });
+                    } catch (verifyError) {
+                        console.error('Payment Verification Error:', verifyError);
+                        toast({
+                            title: 'Payment Verification Failed',
+                            description: 'Payment verification failed. Please contact support.',
+                            variant: 'destructive',
+                        });
+
+                        // Update payment status as failed
+                        await backend.from('center_payments').insert([{
+                            center_id: (await backend.from('centers').select('id').eq('center_code', code).single()).data.id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            amount: 500,
+                            status: 'failed'
+                        }]);
+
+                        // Navigate to failure page
+                        navigate(`/center/payment-failed?centerCode=${code}`, { replace: true });
+                    }
+                },
+                prefill: {
+                    name: formData.ownerName,
+                    email: formData.ownerEmail,
+                    contact: formData.ownerPhone
+                },
+                theme: RAZORPAY_CONFIG.theme
+            });
+
+            razorpayInstance.open();
         } catch (err: any) {
             console.error('Error:', err);
             toast({
@@ -81,28 +189,52 @@ export function SimpleCenterRegistrationPage() {
                 description: err.message || 'Something went wrong',
                 variant: 'destructive',
             });
-        } finally {
             setIsLoading(false);
+        } finally {
+            // Only set loading to false if we're not waiting for payment
+            if (!isPaymentPending) {
+                setIsLoading(false);
+            }
         }
     };
 
-    if (isSuccess) {
+    if (isSuccess && !isPaymentPending) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
                 <Card className="max-w-md w-full">
                     <CardContent className="pt-6 text-center">
                         <CheckCircle className="size-16 text-green-500 mx-auto mb-4" />
-                        <h2 className="text-2xl font-bold mb-2">Registration Successful!</h2>
+                        <h2 className="text-2xl font-bold mb-2">Payment Successful!</h2>
                         <p className="text-gray-600 mb-4">
-                            Your center has been registered. Admin will review and approve your request.
+                            Your center has been activated successfully.
                         </p>
                         <div className="bg-blue-50 p-4 rounded-lg mb-4">
                             <p className="text-sm text-gray-600">Your Center Code:</p>
                             <p className="text-3xl font-bold text-blue-600">{generatedCode}</p>
                         </div>
-                        <Link to="/">
-                            <Button>Go to Home</Button>
+                        <Link to="/center/login">
+                            <Button>Go to Login</Button>
                         </Link>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    // Show payment pending state
+    if (isPaymentPending) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
+                <Card className="max-w-md w-full">
+                    <CardContent className="pt-6 text-center">
+                        <Loader2 className="size-12 text-blue-500 mx-auto mb-4 animate-spin" />
+                        <h2 className="text-2xl font-bold mb-2">Processing Payment...</h2>
+                        <p className="text-gray-600 mb-4">
+                            Please complete the payment to activate your center.
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            Center Code: {generatedCode}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -274,7 +406,7 @@ export function SimpleCenterRegistrationPage() {
                 </Card>
 
                 <p className="text-center mt-4 text-gray-600">
-                    Already registered? <Link to="/center-login" className="text-blue-600 hover:underline">Login here</Link>
+                    Already registered? <Link to="/center/login" className="text-blue-600 hover:underline">Login here</Link>
                 </p>
             </div>
         </div>

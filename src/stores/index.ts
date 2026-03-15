@@ -57,9 +57,8 @@ const mapStudent = (data: any): Student => ({
   referralCode: data.referral_code,
   referredByCenter: data.referred_by_center || data.referred_by_center_code,
   referredByStudent: data.referred_by_student,
-  status: data.payment_status || data.status || 'PENDING',
-  payment_status: data.payment_status || data.status || 'PENDING',
-  password: data.password || '',
+  status: data.status || 'PENDING',
+  payment_status: data.payment_status || 'PENDING',
   createdAt: data.created_at,
   mobileVerified: data.mobile_verified,
   emailVerified: data.email_verified,
@@ -370,9 +369,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('Center not found with this email');
       }
 
-      // Check if center is approved
-      if (centerData.status !== 'APPROVED') {
-        throw new Error('Your center registration is not yet approved. Please wait for admin approval.');
+      // Check if center is approved and payment is paid
+      if (centerData.status !== 'active') {
+        if (centerData.payment_status === 'unpaid') {
+          throw new Error('Your center is not active yet. Please complete the ₹500 registration payment.');
+        } else {
+          throw new Error('Your center registration is not yet approved. Please wait for admin approval.');
+        }
       }
 
       // Try auth sign in
@@ -673,7 +676,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         referred_by_student: data.referredByStudent || null,
         status: 'PENDING',
         payment_status: 'Pending',
-        password: data.password || '',
+
         class_selected: data.class,
       };
 

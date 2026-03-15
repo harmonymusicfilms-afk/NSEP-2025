@@ -20,6 +20,7 @@ export interface Student {
   referredByCenter?: string;
   referredByStudent?: string; // If referred by another student
   status: 'ACTIVE' | 'BLOCKED' | 'PENDING';
+  payment_status?: 'PAID' | 'UNPAID' | 'PENDING';
   createdAt: string;
   mobileVerified: boolean;
   emailVerified: boolean;
