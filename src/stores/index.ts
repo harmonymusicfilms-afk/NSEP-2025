@@ -613,6 +613,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         name: data.name,
         father_name: data.fatherName,
         class: data.class,
+        class_level: data.class,
         mobile: data.mobile,
         email: data.email,
         school_name: data.schoolName,
@@ -626,6 +627,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         center_code: centerCode,
         referral_code: referralCode,
         referred_by_center: data.referredByCenter || null,
+        referred_by_center_code: data.referredByCenter || null,
         referred_by_student: data.referredByStudent || null,
         status: 'PENDING',
       };
@@ -670,7 +672,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
       const dbUpdate: any = { ...data };
       if (data.name) dbUpdate.name = data.name;
       if (data.fatherName) dbUpdate.father_name = data.fatherName;
-      if (data.class) dbUpdate.class = data.class;
+      if (data.class) {
+        dbUpdate.class = data.class;
+        dbUpdate.class_level = data.class;
+      }
       if (data.schoolName) dbUpdate.school_name = data.schoolName;
       if (data.schoolContact) dbUpdate.school_contact = data.schoolContact;
       if (data.addressVillage) dbUpdate.address_village = data.addressVillage;
