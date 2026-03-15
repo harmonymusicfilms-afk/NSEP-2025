@@ -350,7 +350,7 @@ export function CenterRegistrationPage() {
       const { data: finalCheck } = await backend
         .from('centers')
         .select('center_code')
-        .eq('email', formData.ownerEmail)
+        .eq('owner_email', formData.ownerEmail)
         .maybeSingle();
 
       if (finalCheck) {
