@@ -156,63 +156,108 @@ export function RegisterPage() {
   const validateForm = async (): Promise<boolean> => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
+    // Detailed Field Validation
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.fatherName.trim()) newErrors.fatherName = "Father's name is required";
     if (!formData.class) newErrors.class = 'Class is required';
+    
+    // Mobile Validation
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Mobile is required';
     } else if (!isValidMobile(formData.mobile)) {
       newErrors.mobile = 'Invalid mobile number';
     }
 
+    // Email Validation
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!isValidEmail(formData.email)) {
       newErrors.email = 'Invalid email';
     }
 
+    // Password Validation
     if (!formData.password?.trim()) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Min 6 characters';
     }
 
+    // Photo Validation
     if (!formData.photoUrl) newErrors.photoUrl = 'Photo is required';
+    
+    // School Details Validation
     if (!formData.schoolName.trim()) newErrors.schoolName = 'School name is required';
     if (!formData.schoolContact.trim()) newErrors.schoolContact = 'School contact is required';
-    if (!formData.referredByCenter.trim()) {
-      newErrors.referredByCenter = 'Referral code is required';
-    } else if (!referralInfo) {
-      newErrors.referredByCenter = 'Invalid code';
+    
+    // Referral Validation (Make it optional if not provided)
+    if (formData.referredByCenter.trim()) {
+      if (!referralInfo) {
+        newErrors.referredByCenter = 'Invalid code';
+      }
     }
 
+    // Address Validation
     if (!formData.addressVillage.trim()) newErrors.addressVillage = 'Village is required';
     if (!formData.addressBlock.trim()) newErrors.addressBlock = 'Block is required';
     if (!formData.addressTahsil.trim()) newErrors.addressTahsil = 'Tahsil is required';
     if (!formData.addressDistrict.trim()) newErrors.addressDistrict = 'District is required';
     if (!formData.addressState) newErrors.addressState = 'State is required';
 
-    if (!consentData.termsAccepted || !consentData.privacyAccepted || !consentData.referralPolicyAccepted) {
+    // Consent Validation (Immediate check)
+    const isConsentValid = consentData.termsAccepted && consentData.privacyAccepted && consentData.referralPolicyAccepted;
+    if (!isConsentValid) {
       setConsentError('Please accept all terms');
     } else {
       setConsentError('');
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0 && !consentError;
+    
+    const hasErrors = Object.keys(newErrors).length > 0;
+    if (hasErrors) {
+      console.log('Validation failed for fields:', Object.keys(newErrors));
+    }
+
+    return !hasErrors && isConsentValid;
   };
 
   const handleNext = async () => {
-    if (!(await validateForm())) {
-      toast({ title: 'Validation Error', description: 'Please fill all required fields correctly.', variant: 'destructive' });
+    const isFormValid = await validateForm();
+    if (!isFormValid) {
+      // Find what exactly is missing for a better toast message
+      const missingFields: string[] = [];
+      const currentErrors = errors; // Note: validationForm sets state, might need local check
+      
+      // Re-run local check for immediate feedback logic
+      if (!formData.name.trim()) missingFields.push('Name');
+      if (!formData.fatherName.trim()) missingFields.push('Father Name');
+      if (!formData.class) missingFields.push('Class');
+      if (!formData.mobile.trim() || !isValidMobile(formData.mobile)) missingFields.push('Valid Mobile');
+      if (!formData.email.trim() || !isValidEmail(formData.email)) missingFields.push('Valid Email');
+      if (!formData.password?.trim() || formData.password.length < 6) missingFields.push('Password (min 6 chars)');
+      if (!formData.photoUrl) missingFields.push('Profile Photo');
+      if (!formData.schoolName.trim()) missingFields.push('School Name');
+      if (!formData.addressVillage.trim()) missingFields.push('Village');
+      if (!formData.addressDistrict.trim()) missingFields.push('District');
+      
+      const isConsentValid = consentData.termsAccepted && consentData.privacyAccepted && consentData.referralPolicyAccepted;
+      if (!isConsentValid) missingFields.push('Accept all Terms & Conditions');
+
+      const description = missingFields.length > 0 
+        ? `Please check: ${missingFields.join(', ')}`
+        : 'Please fill all required fields correctly.';
+
+      toast({ 
+        title: 'Validation Error', 
+        description, 
+        variant: 'destructive' 
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Pre-check: See if email is already managed by Auth (optional but helpful)
-      // Since we don't want to create the user yet, we'll just carry the data.
-      
+      // Carry the data to payment
       const registrationData = {
         ...formData,
         referralType,
