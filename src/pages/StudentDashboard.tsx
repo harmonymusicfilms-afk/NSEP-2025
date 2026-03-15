@@ -18,6 +18,7 @@ import {
   X,
   User,
   Clock,
+  Bell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,6 +47,8 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp
 export function StudentDashboard() {
   const [copied, setCopied] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { isLoading: authLoading, currentStudent } = useAuthStore();
@@ -211,8 +214,33 @@ export function StudentDashboard() {
       loadExamData();
       loadWallets();
       loadRewards();
+      fetchAnnouncements();
     }
   }, [student, loadPayments, loadExamData, loadWallets, loadRewards]);
+
+  // Fetch announcements from database
+  const fetchAnnouncements = async () => {
+    setIsLoadingAnnouncements(true);
+    try {
+      const { data, error } = await backend
+        .from('announcements')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) {
+        console.error('Error fetching announcements:', error);
+        return;
+      }
+
+      setAnnouncements(data || []);
+    } catch (err) {
+      console.error('Error fetching announcements:', err);
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  };
 
   // Security check: Only allow access if student exists
   // Don't redirect if we're still fetching from URL parameter
@@ -482,6 +510,44 @@ export function StudentDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Announcements Section */}
+      {(announcements.length > 0 || isLoadingAnnouncements) && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Bell className="size-5 text-blue-600" />
+                Announcements
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAnnouncements ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="size-5 animate-spin text-blue-600" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {announcements.map((announcement: any) => (
+                    <div
+                      key={announcement.id}
+                      className="flex items-start gap-3 p-3 bg-white rounded-lg border border-blue-100"
+                    >
+                      <Bell className="size-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm">{announcement.title}</p>
+                        {announcement.message && (
+                          <p className="text-xs text-muted-foreground mt-1">{announcement.message}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Referral Section */}
