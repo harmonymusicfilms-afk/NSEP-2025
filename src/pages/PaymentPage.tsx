@@ -46,20 +46,60 @@ export function PaymentPage() {
     
     setIsProcessing(true);
     try {
-      // Record the attempt in payments table (optional but good for tracking)
-      await createPayment(student.id, getExamFee(student.class));
-      
-      // Redirect to Razorpay hosted page
-      window.location.href = 'https://razorpay.me/@grampanchayathelpdeskmission';
-      
-      // After redirecting, the user will be away. 
-      // When they come back (manually or via redirect if configured in Razorpay), 
-      // they can click a "Payment Completed" button on this page.
-    } catch (error) {
-      console.error('Payment redirect error:', error);
+      // 1. Create Order via Backend API
+      const response = await backend.functions.invoke('create-razorpay-order', {
+        body: { 
+          amount: getExamFee(student.class),
+          receipt: `student_${student.id}`
+        }
+      });
+
+      if (response.error) throw response.error;
+      const order = response.data;
+
+      // 2. Open Razorpay Modal
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_YOUR_KEY', 
+        amount: order.amount,
+        currency: order.currency,
+        name: APP_CONFIG.organization,
+        description: `Exam Fee - Class ${student.class}`,
+        image: '/favicon.png',
+        order_id: order.id,
+        handler: async function (response: any) {
+          // 3. Verify Payment via Backend API
+          const verification = await backend.functions.invoke('verify-razorpay-payment', {
+            body: {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }
+          });
+
+          if (verification.data?.isValid) {
+            handleConfirmPayment(); // Standard success flow
+          } else {
+            toast({ title: 'Verification Failed', description: 'Transaction integrity check failed.', variant: 'destructive' });
+          }
+        },
+        prefill: {
+          name: student.name,
+          email: student.email,
+          contact: student.mobile,
+        },
+        theme: {
+          color: '#1e3a5f',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (error: any) {
+      console.error('Payment error:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to initiate payment. Please try again.',
+        title: 'Payment Error',
+        description: error.message || 'Failed to initiate secure payment.',
         variant: 'destructive',
       });
     } finally {
