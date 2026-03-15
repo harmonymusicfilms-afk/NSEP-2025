@@ -37,99 +37,38 @@ export function PaymentPage() {
     
     setIsProcessing(true);
     try {
-      // 0. Load Razorpay Script if not loaded
-      const isLoaded = await loadRazorpayScript();
-      if (!isLoaded) {
-        throw new Error('Failed to load Razorpay SDK. Please check your internet connection.');
+      // 1. Create the Account & Student record FIRST 
+      // This ensures we don't lose the registration data even if they pay and close the tab
+      const result = await finalizeRegistration(registrationData, 'MANUAL_LINK_PENDING');
+      
+      if (result) {
+        // 2. Open the static Razorpay link in a new tab
+        const paymentLink = "https://razorpay.me/@grampanchayathelpdeskmission";
+        window.open(paymentLink, '_blank');
+        
+        toast({ 
+          title: 'Registration Initiated', 
+          description: 'A new tab has opened for payment. After paying, return here to view your dashboard.',
+          duration: 10000 
+        });
       }
-
-      // 1. Create Order via Backend API
-      const amount = getExamFee(registrationData.class);
-      const response = await backend.functions.invoke('create-razorpay-order', {
-        body: { 
-          amount,
-          receipt: `temp_${Date.now()}`
-        }
-      });
-
-      if (response.error) throw response.error;
-      const order = response.data;
-
-      // 2. Open Razorpay Modal
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || RAZORPAY_CONFIG.keyId, 
-        amount: order.amount,
-        currency: order.currency,
-        name: RAZORPAY_CONFIG.name,
-        description: `Exam Fee - Class ${registrationData.class}`,
-        image: RAZORPAY_CONFIG.logo,
-        order_id: order.id,
-        handler: async function (rpResponse: any) {
-          try {
-            setIsProcessing(true);
-            // 3. Verify Payment
-            const verification = await backend.functions.invoke('verify-razorpay-payment', {
-              body: {
-                razorpay_order_id: rpResponse.razorpay_order_id,
-                razorpay_payment_id: rpResponse.razorpay_payment_id,
-                razorpay_signature: rpResponse.razorpay_signature,
-              }
-            });
-
-            if (verification.data?.isValid) {
-              // 4. VERIFIED: Now Create Auth and Student Record
-              await finalizeRegistration(registrationData, rpResponse.razorpay_payment_id);
-            } else {
-              toast({ title: 'Verification Failed', description: 'Payment verification failed. Please contact support.', variant: 'destructive' });
-            }
-          } catch (err: any) {
-            console.error('Finalization error:', err);
-            toast({ title: 'Recovery Error', description: 'Payment was successful, but account creation failed. Please contact us with your Payment ID: ' + rpResponse.razorpay_payment_id, variant: 'destructive' });
-          } finally {
-            setIsProcessing(false);
-          }
-        },
-        prefill: {
-          name: registrationData.name,
-          email: registrationData.email,
-          contact: registrationData.mobile,
-        },
-        theme: {
-          color: '#1e3a5f',
-        },
-        modal: {
-          ondismiss: function() {
-            setIsProcessing(false);
-          }
-        }
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
 
     } catch (error: any) {
-      console.error('Payment error detail:', error);
-      
-      let errorMessage = 'Failed to initiate secure payment.';
-      
-      // If error is from invoke response.error
-      if (error && typeof error === 'object') {
-        errorMessage = error.message || error.error || JSON.stringify(error);
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-
+      console.error('Registration/Redirect Error:', error);
       toast({
-        title: 'Payment Initialization Failed',
-        description: errorMessage,
+        title: 'Error',
+        description: error.message || 'Failed to process registration.',
         variant: 'destructive',
       });
+    } finally {
       setIsProcessing(false);
     }
   };
 
   const finalizeRegistration = async (data: any, paymentId: string) => {
     try {
+      const isManual = paymentId.startsWith('MANUAL_');
+      
       // A. Create Auth User
       const { data: authData, error: authError } = await backend.auth.signUp({
         email: data.email,
@@ -137,8 +76,6 @@ export function PaymentPage() {
       });
 
       if (authError) {
-        // Handle case where they might have actually registered in parallel 
-        // or we need to login instead
         if (authError.message.toLowerCase().includes('already registered')) {
           await backend.auth.signInWithPassword({
             email: data.email,
@@ -174,13 +111,22 @@ export function PaymentPage() {
 
       if (!student) throw new Error('Database registration failed.');
 
-      // C. Update status to ACTIVE / SUCCESS
-      await backend.from('students').update({ status: 'ACTIVE', payment_status: 'success' }).eq('id', user.id);
+      // C. Update status
+      // If manual, we set to PENDING verification. If automated, we set to SUCCESS.
+      const updateData = isManual 
+        ? { status: 'PENDING', payment_status: 'Pending' }
+        : { status: 'ACTIVE', payment_status: 'success' };
+        
+      await backend.from('students').update(updateData).eq('id', user.id);
       
       setNewStudent(student);
       setShowSuccessPopup(true);
       
-      toast({ title: 'Success! ✅', description: 'Payment verified and registration complete.' });
+      if (!isManual) {
+        toast({ title: 'Success! ✅', description: 'Payment verified and registration complete.' });
+      }
+
+      return student;
 
     } catch (err: any) {
       console.error('Finalize error:', err);

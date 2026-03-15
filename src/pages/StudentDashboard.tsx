@@ -174,16 +174,9 @@ export function StudentDashboard() {
     }
   }, [student, loadPayments, loadExamData, loadWallets, loadRewards]);
 
-  // Security check: Only allow access if payment is success
+  // Security check: Only allow access if student exists
   useEffect(() => {
-    if (!isStudentLoading && student && student.payment_status !== 'success') {
-      toast({ 
-        title: 'Payment Required', 
-        description: 'Please complete your payment to access the dashboard.', 
-        variant: 'destructive' 
-      });
-      // Carry forward the registration data if possible, or just send to general payment
-      // For now, redirect to login or check if they have a session
+    if (!isStudentLoading && !student) {
       navigate('/login');
     }
   }, [student, isStudentLoading, navigate]);
@@ -204,6 +197,51 @@ export function StudentDashboard() {
         <AlertTriangle className="size-12 text-yellow-500" />
         <h2 className="text-2xl font-bold">Student Not Found</h2>
         <Button onClick={() => navigate('/login')}>Return to Login</Button>
+      </div>
+    );
+  }
+
+  // Handle Pending Payment Status UI
+  if (student.payment_status !== 'success') {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-6">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-2xl w-full bg-background rounded-[3rem] border border-border p-10 lg:p-16 text-center shadow-3xl space-y-8"
+        >
+          <div className="mx-auto size-24 bg-yellow-500/10 rounded-[2rem] flex items-center justify-center shadow-lg animate-pulse">
+            <Clock className="size-12 text-yellow-500" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-4xl font-black text-foreground tracking-tight">Payment Under Verification</h2>
+            <p className="text-muted-foreground font-bold italic text-lg leading-relaxed">
+              We have received your registration data. Since you used a manual payment link, our team will verify your transaction within 2-4 hours.
+            </p>
+          </div>
+          
+          <div className="bg-secondary/20 rounded-2xl p-6 border border-border text-left space-y-3">
+            <p className="text-xs font-black text-primary uppercase tracking-widest">Next Steps:</p>
+            <ul className="text-sm text-foreground font-bold space-y-2">
+              <li className="flex items-center gap-2">✓ Payment completed via Razorpay link</li>
+              <li className="flex items-center gap-2">📂 Data archived in our secure systems</li>
+              <li className="flex items-center gap-2 text-yellow-500">⏳ Verification in progress by Admin</li>
+            </ul>
+          </div>
+
+          <p className="text-sm text-muted-foreground font-bold italic">
+            Need help? Contact us: <span className="text-primary">{APP_CONFIG.supportPhone}</span>
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <Button onClick={() => window.location.reload()} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest">
+              Check Status
+            </Button>
+            <Button variant="outline" onClick={() => useAuthStore.getState().signOut()} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest">
+              Logout
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
