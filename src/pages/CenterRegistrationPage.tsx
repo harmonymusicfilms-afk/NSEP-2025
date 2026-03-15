@@ -1241,6 +1241,51 @@ export function CenterRegistrationPage() {
                     <AlertCircle className="size-4" /> {termsError}
                   </p>
                 )}
+
+                {/* Navigation Buttons */}
+                <div className="flex justify-between pt-4">
+                  {step !== 'details' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBack}
+                      className="px-6"
+                    >
+                      <ArrowLeft className="size-4 mr-2" />
+                      Back
+                    </Button>
+                  )}
+                  <div className="flex-1" />
+                  {step !== 'review' ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className="px-6 institutional-gradient"
+                    >
+                      Next
+                      <ArrowRight className="size-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || !termsAccepted}
+                      className="px-6 institutional-gradient"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="size-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          Submit Application
+                          <CheckCircle className="size-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1249,7 +1294,7 @@ export function CenterRegistrationPage() {
       </div>
 
       {/* Success View (Modal) */}
-      <Dialog open={step === 'success'} onOpenChange={(open) => { if(!open) navigate('/center/dashboard'); }}>
+      <Dialog open={step === 'success'} onOpenChange={(open) => { if (!open) navigate('/center/dashboard'); }}>
         <DialogContent className="max-w-md p-0 overflow-hidden border-none shadow-2xl rounded-[2rem] bg-white">
           <div className="bg-gradient-to-b from-green-50 to-white p-8">
             <DialogHeader className="text-center pt-4">
@@ -1302,7 +1347,7 @@ export function CenterRegistrationPage() {
                 </p>
               </div>
 
-              <Button 
+              <Button
                 className="w-full h-16 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 text-white font-black text-lg shadow-xl hover:scale-[1.02] transition-transform"
                 onClick={() => navigate('/center/dashboard')}
               >
