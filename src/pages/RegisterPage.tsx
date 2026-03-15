@@ -211,23 +211,30 @@ export function RegisterPage() {
     setIsSubmitting(true);
     try {
       // 1. SignUp with backend Auth
-      const { data: authData, error: authError } = await backend.auth.signUp({
+      let { data: authData, error: authError } = await backend.auth.signUp({
         email: formData.email,
         password: formData.password || 'password123',
       });
 
-      let userId = authData?.user?.id;
+      // Handle "Experience" where Auth user might exist but Student record doesn't
+      if (authError && authError.message.toLowerCase().includes('already registered')) {
+        // Attempt a silent login with the password they just entered
+        const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password || 'password123',
+        });
 
-      if (authError) {
-        if (authError.message.toLowerCase().includes('already registered')) {
-          // If already registered, we can't easily "Next" unless we ask them to login.
-          // For simplicity in this demo, we'll assume new registrations or handle with a sign in.
-          throw new Error('This email is already registered. Please login to continue.');
+        if (signInError) {
+          throw new Error('This email is already registered. Please login with your correct password.');
         }
-        throw authError;
+        authData = signInData;
+        authError = null;
       }
 
-      if (!userId) throw new Error('Auth failed');
+      if (authError) throw authError;
+      
+      let userId = authData?.user?.id;
+      if (!userId) throw new Error('Authentication failed. Please try again.');
 
       // 2. Create Student Record as PENDING
       const student = await addStudent({
