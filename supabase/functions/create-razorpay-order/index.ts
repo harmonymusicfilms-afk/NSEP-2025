@@ -16,9 +16,16 @@ serve(async (req) => {
     const { amount, currency = 'INR', receipt } = await req.json()
 
     // Initialize Razorpay
+    const keyId = Deno.env.get('RAZORPAY_KEY_ID');
+    const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
+
+    if (!keyId || !keySecret) {
+      throw new Error('RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is not set in backend secrets.');
+    }
+
     const razorpay = new Razorpay({
-      key_id: Deno.env.get('RAZORPAY_KEY_ID') || '',
-      key_secret: Deno.env.get('RAZORPAY_KEY_SECRET') || '',
+      key_id: keyId,
+      key_secret: keySecret,
     })
 
     // Create Order

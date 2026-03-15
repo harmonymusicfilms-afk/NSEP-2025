@@ -12,13 +12,22 @@ serve(async (req) => {
   }
 
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json()
-    const secret = Deno.env.get('RAZORPAY_KEY_SECRET') || ''
+    const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
+    if (!keySecret) {
+      throw new Error('RAZORPAY_KEY_SECRET is not set in backend secrets.');
+    }
 
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json()
+    
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      throw new Error('Missing payment verification details in request.');
+    }
+
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
     // Verify Signature
-    const generated_signature = createHmac('sha256', secret)
-      .update(razorpay_order_id + "|" + razorpay_payment_id)
-      .digest('hex')
+    const generated_signature = createHmac("sha256", keySecret)
+      .update(body.toString())
+      .digest("hex");
 
     const isValid = generated_signature === razorpay_signature
 

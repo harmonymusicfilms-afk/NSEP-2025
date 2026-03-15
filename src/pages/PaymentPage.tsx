@@ -10,6 +10,7 @@ import { APP_CONFIG, getExamFee } from '@/constants/config';
 import { formatCurrency } from '@/lib/utils';
 import { client as backend } from '@/lib/backend';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { loadRazorpayScript, RAZORPAY_CONFIG } from '@/constants/razorpay';
 
 export function PaymentPage() {
   const location = useLocation();
@@ -36,6 +37,12 @@ export function PaymentPage() {
     
     setIsProcessing(true);
     try {
+      // 0. Load Razorpay Script if not loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        throw new Error('Failed to load Razorpay SDK. Please check your internet connection.');
+      }
+
       // 1. Create Order via Backend API
       const amount = getExamFee(registrationData.class);
       const response = await backend.functions.invoke('create-razorpay-order', {
@@ -50,12 +57,12 @@ export function PaymentPage() {
 
       // 2. Open Razorpay Modal
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_YOUR_KEY', 
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || RAZORPAY_CONFIG.keyId, 
         amount: order.amount,
         currency: order.currency,
-        name: APP_CONFIG.organization,
+        name: RAZORPAY_CONFIG.name,
         description: `Exam Fee - Class ${registrationData.class}`,
-        image: '/favicon.png',
+        image: RAZORPAY_CONFIG.logo,
         order_id: order.id,
         handler: async function (rpResponse: any) {
           try {
@@ -101,10 +108,20 @@ export function PaymentPage() {
       rzp.open();
 
     } catch (error: any) {
-      console.error('Payment error:', error);
+      console.error('Payment error detail:', error);
+      
+      let errorMessage = 'Failed to initiate secure payment.';
+      
+      // If error is from invoke response.error
+      if (error && typeof error === 'object') {
+        errorMessage = error.message || error.error || JSON.stringify(error);
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
       toast({
-        title: 'Payment Error',
-        description: error.message || 'Failed to initiate secure payment.',
+        title: 'Payment Initialization Failed',
+        description: errorMessage,
         variant: 'destructive',
       });
       setIsProcessing(false);
