@@ -399,49 +399,77 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginAdmin: async (email, password) => {
     set({ isLoading: true });
     try {
-      // ✅ SUPER ADMIN LOGIN - Credentials with fallbacks and trim to prevent newline issues
-      const superAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'grampanchayathelp@gmail.com').toLowerCase().trim();
-      const superAdminLoginPassword = (import.meta.env.VITE_ADMIN_PASSWORD || 'admin123').trim();
-      const superAdminBackendPassword = (import.meta.env.VITE_ADMIN_BACKEND_PASSWORD || 'grampanchayat_admin').trim();
+      // ✅ NEW ADMIN LOGIN SYSTEM - Use database credentials
+      const superAdminEmail = 'admin@gphdm.com';
+      const superAdminPassword = 'admin123';
 
-      if (superAdminEmail && email.toLowerCase().trim() === superAdminEmail && password === superAdminLoginPassword) {
-        // Force sign out first to clear any student session
+      // Check if login matches the new database credentials
+      if (email.toLowerCase().trim() === superAdminEmail && password === superAdminPassword) {
+        // First, check if admin exists in admin_users table
+        const { data: existingAdmin } = await backend
+          .from('admin_users')
+          .select('*')
+          .eq('email', superAdminEmail)
+          .eq('role', 'SUPER_ADMIN')
+          .maybeSingle();
+
+        // Try to sign in with Supabase Auth
         await backend.auth.signOut();
-
         let { data: authData, error: authError } = await backend.auth.signInWithPassword({
-          email: email.trim(),
-          password: superAdminBackendPassword,
+          email: superAdminEmail,
+          password: superAdminPassword,
         });
 
-        // If not found or invalid, attempt to create/reset it
+        // If auth user doesn't exist, create it
         if (authError && authError.message.toLowerCase().includes('invalid login credentials')) {
           const signUpRes = await backend.auth.signUp({
-            email: email.trim(),
-            password: superAdminBackendPassword,
+            email: superAdminEmail,
+            password: superAdminPassword,
           });
+
+          if (signUpRes.error) {
+            throw new Error('Failed to create admin user: ' + signUpRes.error.message);
+          }
+
+          if (!signUpRes.data?.user) {
+            throw new Error('Failed to create admin user: No user data');
+          }
+
           authData = signUpRes.data as any;
-          authError = signUpRes.error;
+          authError = null;
         }
 
         if (authError || !authData?.user) {
-          throw new Error('Super Admin authentication failed: ' + (authError?.message || 'No user data'));
+          throw new Error('Admin authentication failed: ' + (authError?.message || 'No user data'));
         }
 
-        // Upsert admin_users row so RLS policies work
-        const { error: upsertError } = await backend.from('admin_users').upsert([{
-          id: authData.user.id,
-          name: 'Gram Panchayat Admin',
-          email: email.trim(),
-          role: 'SUPER_ADMIN',
-          last_login: new Date().toISOString()
-        }]);
+        // If admin doesn't exist in admin_users table, create it
+        if (!existingAdmin) {
+          const { error: insertError } = await backend.from('admin_users').insert([{
+            id: authData.user.id,
+            name: 'Super Admin',
+            email: superAdminEmail,
+            role: 'SUPER_ADMIN',
+            password_hash: superAdminPassword,
+            last_login: new Date().toISOString()
+          }]);
 
-        if (upsertError) console.error("Could not upsert admin user:", upsertError);
+          if (insertError) {
+            console.error('Could not create admin user:', insertError);
+          }
+        } else {
+          // Update existing admin with the auth user id
+          await backend.from('admin_users').update({
+            id: authData.user.id,
+            password_hash: superAdminPassword,
+            last_login: new Date().toISOString()
+          }).eq('email', superAdminEmail);
+        }
 
         const admin: AdminUser = {
           id: authData.user.id,
-          name: 'Gram Panchayat Admin',
-          email: email.trim(),
+          name: 'Super Admin',
+          email: superAdminEmail,
           role: 'SUPER_ADMIN',
           createdAt: new Date().toISOString(),
           passwordHash: '',
