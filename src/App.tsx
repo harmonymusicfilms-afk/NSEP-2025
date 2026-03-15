@@ -28,6 +28,7 @@ import { GalleryPage } from '@/pages/GalleryPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { UpdatePasswordPage } from '@/pages/UpdatePasswordPage';
 import { CreateMockResultPage } from '@/pages/CreateMockResultPage';
+import { SimpleCenterRegistrationPage } from '@/pages/SimpleCenterRegistrationPage';
 import { AdminGalleryPage } from '@/pages/AdminGalleryPage';
 
 
@@ -69,7 +70,7 @@ function App() {
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
-            <Route path="/center-registration" element={<CenterRegistrationPage />} />
+            <Route path="/center-registration" element={<SimpleCenterRegistrationPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/center/login" element={<CenterLoginPage />} />
           </Route>
