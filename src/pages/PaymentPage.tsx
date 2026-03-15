@@ -69,9 +69,11 @@ export function PaymentPage() {
     try {
       const isManual = paymentId.startsWith('MANUAL_');
       
-      // A. Create Auth User
+      const uniqueEmail = `reg_${Date.now()}_${data.email}`;
+      
+      // A. Create Auth User with a unique temporary email
       const { data: authData, error: authError } = await backend.auth.signUp({
-        email: data.email,
+        email: uniqueEmail,
         password: data.password || 'password123',
       });
 
@@ -209,12 +211,12 @@ export function PaymentPage() {
                     <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Class Selected</span>
                     <span className="font-black text-foreground">Class {registrationData?.class}</span>
                   </div>
-                  <div className="flex justify-between items-center p-6 institutional-gradient rounded-2xl border border-primary/20 shadow-lg">
-                    <div className="text-white">
+                  <div className="flex justify-between items-center p-6 bg-secondary/30 rounded-2xl border border-border shadow-md">
+                    <div className="text-foreground">
                       <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Examination Fee</p>
-                      <p className="text-3xl font-black">{formatCurrency(examFee)}</p>
+                      <p className="text-3xl font-black text-black">{formatCurrency(examFee)}</p>
                     </div>
-                    <Shield className="size-10 text-white/50" />
+                    <Shield className="size-10 text-primary/30" />
                   </div>
                 </div>
 
