@@ -11,6 +11,8 @@ import {
   Award,
   FileText,
   Image as ImageIcon,
+  BookOpen,
+  List,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,11 +37,17 @@ import {
 } from '@/stores';
 import { getExamFee, EXAM_CONFIG, REFERRAL_CONFIG, APP_CONFIG } from '@/constants/config';
 import { formatCurrency, formatTime, generatePaymentId } from '@/lib/utils';
+import { client } from '@/lib/backend';
 
-type ExamPhase = 'approval' | 'payment' | 'ready' | 'exam' | 'gap' | 'completed';
+type ExamPhase = 'list' | 'approval' | 'payment' | 'ready' | 'exam' | 'gap' | 'completed';
+
+interface AvailableExam {
+  classLevel: number;
+  questionCount: number;
+}
 
 export function ExamPage() {
-  const [phase, setPhase] = useState<ExamPhase>('payment');
+  const [phase, setPhase] = useState<ExamPhase>('list');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [gapTimeLeft, setGapTimeLeft] = useState(0);
@@ -50,6 +58,8 @@ export function ExamPage() {
   const [showConfirmStart, setShowConfirmStart] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [answers, setAnswers] = useState<{ questionId: string; selected: number | null; timeTaken: number }[]>([]);
+  const [availableExams, setAvailableExams] = useState<AvailableExam[]>([]);
+  const [isLoadingExams, setIsLoadingExams] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -63,7 +73,46 @@ export function ExamPage() {
     loadPayments();
     loadExamData();
     loadStudents();
+    // Fetch available exams
+    fetchAvailableExams();
   }, [loadPayments, loadExamData, loadStudents]);
+
+  // Fetch available exams from database
+  const fetchAvailableExams = async () => {
+    if (!currentStudent) return;
+
+    setIsLoadingExams(true);
+    try {
+      const { data: exams, error } = await client
+        .from('questions')
+        .select('class_level')
+        .eq('class_level', currentStudent.class);
+
+      if (error) {
+        console.error('Error fetching exams:', error);
+        setIsLoadingExams(false);
+        return;
+      }
+
+      // Group by class_level and count questions
+      const examMap = new Map<number, number>();
+      exams?.forEach((exam: any) => {
+        const classLevel = exam.class_level;
+        examMap.set(classLevel, (examMap.get(classLevel) || 0) + 1);
+      });
+
+      const examList: AvailableExam[] = Array.from(examMap.entries()).map(([classLevel, questionCount]) => ({
+        classLevel,
+        questionCount,
+      }));
+
+      setAvailableExams(examList);
+    } catch (err) {
+      console.error('Error fetching available exams:', err);
+    } finally {
+      setIsLoadingExams(false);
+    }
+  };
 
   useEffect(() => {
     if (currentStudent?.class) {
@@ -350,6 +399,67 @@ export function ExamPage() {
   return (
     <div className="p-6">
       <div className="max-w-4xl mx-auto">
+        {/* Exam List Phase */}
+        {phase === 'list' && (
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader className="text-center">
+              <div className="mx-auto size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <List className="size-8 text-primary" />
+              </div>
+              <CardTitle className="font-serif text-2xl">Available Exams</CardTitle>
+              <CardDescription>
+                Select an exam to start
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoadingExams ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="size-8 animate-spin text-primary" />
+                </div>
+              ) : availableExams.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="size-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No exams available for your class</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {availableExams.map((exam) => (
+                    <div
+                      key={exam.classLevel}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <BookOpen className="size-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">Exam for Class {exam.classLevel}</p>
+                          <p className="text-sm text-muted-foreground">{exam.questionCount} questions</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          if (hasCompletedExam(currentStudent.id)) {
+                            setPhase('completed');
+                          } else if (hasSuccessfulPayment(currentStudent.id)) {
+                            setPhase('ready');
+                          } else {
+                            setPhase('payment');
+                          }
+                        }}
+                        className="institutional-gradient"
+                      >
+                        <Play className="size-4 mr-2" />
+                        Start Exam
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Approval Phase */}
         {phase === 'approval' && (
           <Card className="max-w-lg mx-auto border-yellow-200 bg-yellow-50/30">

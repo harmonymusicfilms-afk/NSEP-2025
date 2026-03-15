@@ -9,7 +9,6 @@ import { PaymentPage } from '@/pages/PaymentPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { StudentDashboard } from '@/pages/StudentDashboard';
 import { StudentResultsPage } from '@/pages/StudentResultsPage';
-import { StudentWalletPage } from '@/pages/StudentWalletPage';
 import { StudentCertificatesPage } from '@/pages/StudentCertificatesPage';
 import { ExamPage } from '@/pages/ExamPage';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
@@ -81,7 +80,6 @@ function App() {
             <Route path="/dashboard/exam" element={<ExamPage />} />
             <Route path="/dashboard/results" element={<StudentResultsPage />} />
             <Route path="/dashboard/certificates" element={<StudentCertificatesPage />} />
-            <Route path="/dashboard/wallet" element={<StudentWalletPage />} />
             <Route path="/dashboard/create-mock-result" element={<CreateMockResultPage />} />
           </Route>
 

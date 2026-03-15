@@ -59,7 +59,6 @@ const studentNavItems = [
   { href: '/dashboard/exam', label: 'Take Exam', icon: ClipboardList },
   { href: '/dashboard/results', label: 'Results', icon: Award },
   { href: '/dashboard/certificates', label: 'Certificates', icon: FileCheck },
-  { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
 ];
 
 interface SidebarProps {

@@ -599,15 +599,6 @@ export function StudentDashboard() {
                   </Button>
                 </Link>
               )}
-              <Link to="/dashboard/syllabus" className="block">
-                <Button variant="outline" className="w-full h-14 rounded-2xl justify-between gap-3 bg-input border-border hover:bg-secondary/30 hover:border-primary/50 px-6 font-black uppercase text-xs tracking-widest transition-all text-foreground">
-                  <span className="flex items-center gap-3 text-muted-foreground">
-                    <Wallet className="size-5" />
-                    Access Wallet
-                  </span>
-                  <ArrowRight className="size-4 opacity-50" />
-                </Button>
-              </Link>
               <Link to="/dashboard/certificates" className="block">
                 <Button variant="outline" className="w-full h-14 rounded-2xl justify-between gap-3 bg-input border-border hover:bg-secondary/30 hover:border-primary/50 px-6 font-black uppercase text-xs tracking-widest transition-all text-foreground">
                   <span className="flex items-center gap-3 text-muted-foreground">
