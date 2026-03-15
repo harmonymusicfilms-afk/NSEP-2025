@@ -22,6 +22,10 @@ export const client = {
             const { data, error } = await insforge.auth.getCurrentSession();
             return { data: { session: data?.session || null }, error };
         },
+        getUser: async () => {
+            const { data, error } = await insforge.auth.getCurrentSession();
+            return { data: { user: data?.session?.user || null }, error };
+        },
         onAuthStateChange: (callback: (event: string, session: any) => void) => {
             insforge.auth.getCurrentSession().then(({ data }) => {
                 callback('INITIAL_SESSION', data?.session || null);
