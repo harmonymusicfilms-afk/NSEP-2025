@@ -57,7 +57,9 @@ const mapStudent = (data: any): Student => ({
   referralCode: data.referral_code,
   referredByCenter: data.referred_by_center || data.referred_by_center_code,
   referredByStudent: data.referred_by_student,
-  status: data.status,
+  status: data.payment_status || data.status || 'PENDING',
+  payment_status: data.payment_status || data.status || 'PENDING',
+  password: data.password || '',
   createdAt: data.created_at,
   mobileVerified: data.mobile_verified,
   emailVerified: data.email_verified,
@@ -629,7 +631,11 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         referred_by_center: data.referredByCenter || null,
         referred_by_center_code: data.referredByCenter || null,
         referred_by_student: data.referredByStudent || null,
+        referred_by_student: data.referredByStudent || null,
         status: 'PENDING',
+        payment_status: 'Pending',
+        password: data.password || '',
+        class_selected: data.class,
       };
 
       const { data: newStudent, error } = await backend

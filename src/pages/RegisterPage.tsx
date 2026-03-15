@@ -244,6 +244,7 @@ export function RegisterPage() {
         addressDistrict: formData.addressDistrict.trim(),
         addressState: formData.addressState,
         photoUrl: formData.photoUrl,
+        password: formData.password,
         referredByCenter: referralType === 'CENTER' ? formData.referredByCenter.toUpperCase() : undefined,
         referredByStudent: referralType === 'STUDENT' ? formData.referredByCenter.toUpperCase() : undefined,
       }, userId);

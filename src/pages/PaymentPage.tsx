@@ -68,29 +68,34 @@ export function PaymentPage() {
   };
 
   const handleConfirmPayment = async () => {
+    if (!studentId) return;
     setIsProcessing(true);
     try {
-      // In a real app, we would verify with Razorpay API here.
-      // For this flow, we mark as PAID as requested.
-      await updateStudent(student.id, { status: 'ACTIVE' });
-      
-      // Update local student state
-      setStudent({ ...student, status: 'ACTIVE' });
+      // Update both 'status' and 'payment_status'
+      await updateStudent(studentId, { 
+        status: 'ACTIVE', 
+        payment_status: 'Paid' 
+      });
+
+      // Update local state to show 'Paid'
+      setStudent((prev: any) => prev ? { ...prev, status: 'ACTIVE', payment_status: 'Paid' } : null);
       
       setShowSuccessPopup(true);
       toast({
         title: 'Payment Confirmed! ✅',
-        description: 'Your registration is now complete.',
+        description: 'Registration successful. Please login now.',
       });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update payment status.',
-        variant: 'destructive',
-      });
+    } catch (err) {
+      console.error('Confirm error:', err);
+      toast({ title: 'Confirmation Failed', description: 'Please try again.', variant: 'destructive' });
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleGoToLogin = () => {
+    setShowSuccessPopup(false);
+    navigate('/login');
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -147,11 +152,11 @@ export function PaymentPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center p-4 bg-background rounded-2xl border border-border">
                     <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Student Name</span>
-                    <span className="font-black text-foreground">{student.name}</span>
+                    <span className="font-black text-foreground">{student?.name}</span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-background rounded-2xl border border-border">
                     <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Class Selected</span>
-                    <span className="font-black text-foreground">Class {student.class}</span>
+                    <span className="font-black text-foreground">Class {student?.class}</span>
                   </div>
                   <div className="flex justify-between items-center p-6 institutional-gradient rounded-2xl border border-primary/20 shadow-lg">
                     <div className="text-white">
@@ -255,9 +260,9 @@ export function PaymentPage() {
               <CheckCircle className="size-12 text-green-600" />
             </div>
             <DialogHeader className="space-y-2">
-              <DialogTitle className="text-3xl font-black text-foreground tracking-tight">Registration Successful!</DialogTitle>
+              <DialogTitle className="text-3xl font-black text-foreground tracking-tight">Registration Successful</DialogTitle>
               <DialogDescription className="text-base font-bold italic text-muted-foreground">
-                Welcome to {APP_CONFIG.organization}. Your account is now active.
+                Your account is now fully active. Please save your credentials.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -265,7 +270,7 @@ export function PaymentPage() {
           <div className="p-8 space-y-4">
             <div className="p-6 bg-secondary/20 rounded-3xl border border-border space-y-4">
               <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Login User ID (ID)</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your User ID</p>
                 <div className="flex gap-2">
                   <div className="flex-1 h-12 bg-background border border-border rounded-xl flex items-center px-4 font-mono font-bold text-foreground truncate">
                     {student?.email}
@@ -276,29 +281,24 @@ export function PaymentPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Password (HIDDEN)</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Password</p>
                 <div className="flex gap-2">
                   <div className="flex-1 h-12 bg-background border border-border rounded-xl flex items-center px-4 font-mono font-bold text-foreground">
-                    ••••••••
+                    {student?.password || '••••••••'}
                   </div>
-                  <div className="text-[10px] text-green-600 font-black flex items-center gap-1 uppercase tracking-widest bg-green-50 px-3 rounded-xl border border-green-100">
-                    <Shield className="size-3" /> Secure
-                  </div>
+                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(student?.password || '', 'Password')} className="h-12 w-12 rounded-xl">
+                    <Copy className="size-4" />
+                  </Button>
                 </div>
-                <p className="text-[9px] text-muted-foreground italic ml-1">* Use the password you created during form submission.</p>
               </div>
             </div>
 
             <Button 
-              onClick={() => navigate('/login')}
+              onClick={handleGoToLogin}
               className="w-full h-16 rounded-2xl institutional-gradient text-white font-black text-lg shadow-[0_0_20px_rgba(255,165,0,0.3)] hover:scale-[1.02] transition-transform"
             >
               Go to Login Page <LogIn className="ml-2 size-5" />
             </Button>
-            
-            <p className="text-center text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-              Need help? Contact {APP_CONFIG.supportEmail}
-            </p>
           </div>
         </DialogContent>
       </Dialog>
