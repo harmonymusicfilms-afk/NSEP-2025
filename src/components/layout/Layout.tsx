@@ -35,16 +35,30 @@ export function PublicLayout() {
 
 // Student dashboard layout with sidebar
 export function StudentLayout() {
-  const { isStudentLoggedIn, currentStudent } = useAuthStore();
+  const { isStudentLoggedIn, currentStudent, isLoading: authLoading } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const studentIdParam = searchParams.get('student_id');
 
+  console.log('[Layout] isStudentLoggedIn:', isStudentLoggedIn, 'currentStudent:', currentStudent ? 'exists' : 'null', 'authLoading:', authLoading, 'studentIdParam:', studentIdParam);
+
+  // Show loading spinner while checking auth status
+  if (authLoading) {
+    return (
+      <LightWrapper className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </LightWrapper>
+    );
+  }
+
   // Allow access if either logged in OR has valid student_id in URL
   // This handles post-registration redirect where auth context hasn't loaded yet
   if (!isStudentLoggedIn && !currentStudent && !studentIdParam) {
+    console.log('[Layout] Redirecting to login - not logged in');
     return <Navigate to="/login" replace />;
   }
+
+  console.log('[Layout] Allowing access to dashboard');
 
   return (
     <LightWrapper className="flex pb-16 md:pb-0 overflow-hidden">

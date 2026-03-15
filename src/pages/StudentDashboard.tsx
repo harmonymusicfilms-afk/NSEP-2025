@@ -17,6 +17,7 @@ import {
   Upload,
   X,
   User,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -59,11 +60,14 @@ export function StudentDashboard() {
   const studentIdParam = searchParams.get('student_id');
   const navigate = useNavigate();
 
+  console.log('[Dashboard] Auth loading:', authLoading, 'Current student:', currentStudent ? 'exists' : 'null', 'URL student:', urlStudent ? 'exists' : 'null', 'Fetching:', isFetchingUrlStudent);
+
   // Handle direct redirection via student_id query param
   useEffect(() => {
     async function fetchIndividualStudent() {
       if (studentIdParam) {
         setIsFetchingUrlStudent(true);
+        console.log('[Dashboard] Fetching student from URL:', studentIdParam);
         try {
           const { data, error } = await backend
             .from('students')
@@ -71,39 +75,48 @@ export function StudentDashboard() {
             .eq('id', studentIdParam)
             .maybeSingle();
 
+          if (error) {
+            console.error('[Dashboard] Error fetching student:', error);
+            throw error;
+          }
+
           if (data) {
+            console.log('[Dashboard] Student fetched successfully:', data.id);
             // Map the raw database data to Student format (snake_case -> camelCase)
             const mappedStudent = {
-              id: data.id,
-              name: data.name,
-              fatherName: data.father_name,
+              id: data.id ?? '',
+              name: data.name ?? '',
+              fatherName: data.father_name ?? '',
               class: data.class_level || data.class || 0,
-              mobile: data.mobile,
-              email: data.email,
-              schoolName: data.school_name,
-              schoolContact: data.school_contact,
-              addressVillage: data.address_village,
-              addressBlock: data.address_block,
-              addressTahsil: data.address_tahsil,
-              addressDistrict: data.address_district,
-              addressState: data.address_state,
-              photoUrl: data.photo_url,
-              centerCode: data.center_code,
-              referralCode: data.referral_code,
-              referredByCenter: data.referred_by_center_code || data.referred_by_center,
-              referredByStudent: data.referred_by_student,
+              mobile: data.mobile ?? '',
+              email: data.email ?? '',
+              schoolName: data.school_name ?? '',
+              schoolContact: data.school_contact ?? '',
+              addressVillage: data.address_village ?? '',
+              addressBlock: data.address_block ?? '',
+              addressTahsil: data.address_tahsil ?? '',
+              addressDistrict: data.address_district ?? '',
+              addressState: data.address_state ?? '',
+              photoUrl: data.photo_url ?? '',
+              centerCode: data.center_code ?? '',
+              referralCode: data.referral_code ?? '',
+              referredByCenter: data.referred_by_center_code || data.referred_by_center || '',
+              referredByStudent: data.referred_by_student ?? '',
               status: data.payment_status || data.status || 'PENDING',
               payment_status: data.payment_status || data.status || 'PENDING',
-              createdAt: data.created_at,
-              mobileVerified: data.mobile_verified,
-              emailVerified: data.email_verified,
+              createdAt: data.created_at ?? '',
+              mobileVerified: data.mobile_verified ?? false,
+              emailVerified: data.email_verified ?? false,
             };
             setUrlStudent(mappedStudent);
+          } else {
+            console.log('[Dashboard] No student found for ID:', studentIdParam);
           }
         } catch (err) {
-          console.error('Error fetching student from URL:', err);
+          console.error('[Dashboard] Failed to fetch student:', err);
         } finally {
           setIsFetchingUrlStudent(false);
+          console.log('[Dashboard] Finished fetching student');
         }
       }
     }
@@ -233,7 +246,7 @@ export function StudentDashboard() {
   }
 
   // Handle Pending Payment Status UI
-  if (student.payment_status !== 'success') {
+  if (student?.payment_status !== 'success') {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-6">
         <motion.div
@@ -268,7 +281,7 @@ export function StudentDashboard() {
             <Button onClick={() => window.location.reload()} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest">
               Check Status
             </Button>
-            <Button variant="outline" onClick={() => useAuthStore.getState().signOut()} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest">
+            <Button variant="outline" onClick={() => navigate('/login')} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest">
               Logout
             </Button>
           </div>
@@ -277,7 +290,7 @@ export function StudentDashboard() {
     );
   }
 
-  const hasPaid = student.payment_status === 'success';
+  const hasPaid = student?.payment_status === 'success';
   const examCompleted = hasCompletedExam(student.id);
   const examResult = results.find((r) => r.studentId === student.id);
   const wallet = getWalletByStudent(student.id);
@@ -350,12 +363,12 @@ export function StudentDashboard() {
               Welcome, <span className="premium-text-gradient">{student.name}!</span>
             </h1>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-bold italic text-sm">
-              <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full not-italic">ID: {student.email}</span>
-              <span>Class {student.class}</span>
+              <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full not-italic">ID: {student?.email ?? ''}</span>
+              <span>Class {student?.class ?? 0}</span>
               <span>•</span>
-              <span>{student.address_district || student.addressDistrict}</span>
+              <span>{student?.addressDistrict ?? student?.address_district ?? ''}</span>
               <span>•</span>
-              <span>Registered: {formatDate(student.created_at)}</span>
+              <span>Registered: {formatDate(student?.createdAt ?? student?.created_at ?? '')}</span>
             </div>
           </div>
         </motion.div>
