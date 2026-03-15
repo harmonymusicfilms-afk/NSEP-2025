@@ -640,7 +640,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
       const { data: newStudent, error } = await backend
         .from('students')
-        .insert([studentData])
+        .upsert([studentData])
         .select()
         .maybeSingle();
 

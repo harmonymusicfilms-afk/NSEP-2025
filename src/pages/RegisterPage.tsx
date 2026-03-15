@@ -217,7 +217,14 @@ export function RegisterPage() {
       });
 
       // Handle "Experience" where Auth user might exist but Student record doesn't
-      if (authError && authError.message.toLowerCase().includes('already registered')) {
+      const isAlreadyRegistered = authError && (
+        authError.message.toLowerCase().includes('already registered') || 
+        authError.message.toLowerCase().includes('already exists') ||
+        (authError as any).status === 400 || 
+        (authError as any).status === 422
+      );
+
+      if (isAlreadyRegistered) {
         // Attempt a silent login with the password they just entered
         const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
           email: formData.email,
