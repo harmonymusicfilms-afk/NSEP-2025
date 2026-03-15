@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, CheckCircle, ArrowRight, GraduationCap, Shield, LogIn, Copy, Share2, Download, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,45 +12,36 @@ import { client as backend } from '@/lib/backend';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export function PaymentPage() {
-  const [searchParams] = useSearchParams();
-  const studentId = searchParams.get('studentId');
-  const [student, setStudent] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
+  const registrationData = location.state?.registrationData;
+  const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [newStudent, setNewStudent] = useState<any>(null);
   
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { getStudentById, updateStudent } = useStudentStore();
+  const { addStudent } = useStudentStore();
   const { createPayment } = usePaymentStore();
 
   useEffect(() => {
-    async function fetchStudent() {
-      if (!studentId) {
-        navigate('/register');
-        return;
-      }
-      const data = await getStudentById(studentId);
-      if (!data) {
-        navigate('/register');
-        return;
-      }
-      setStudent(data);
-      setIsLoading(false);
+    if (!registrationData) {
+      toast({ title: 'Session Expired', description: 'Registration data not found. Please fill the form again.', variant: 'destructive' });
+      navigate('/register');
     }
-    fetchStudent();
-  }, [studentId, getStudentById, navigate]);
+  }, [registrationData, navigate]);
 
   const handlePayRedirect = async () => {
-    if (!student) return;
+    if (!registrationData) return;
     
     setIsProcessing(true);
     try {
       // 1. Create Order via Backend API
+      const amount = getExamFee(registrationData.class);
       const response = await backend.functions.invoke('create-razorpay-order', {
         body: { 
-          amount: getExamFee(student.class),
-          receipt: `student_${student.id}`
+          amount,
+          receipt: `temp_${Date.now()}`
         }
       });
 
@@ -63,33 +54,47 @@ export function PaymentPage() {
         amount: order.amount,
         currency: order.currency,
         name: APP_CONFIG.organization,
-        description: `Exam Fee - Class ${student.class}`,
+        description: `Exam Fee - Class ${registrationData.class}`,
         image: '/favicon.png',
         order_id: order.id,
-        handler: async function (response: any) {
-          // 3. Verify Payment via Backend API
-          const verification = await backend.functions.invoke('verify-razorpay-payment', {
-            body: {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }
-          });
+        handler: async function (rpResponse: any) {
+          try {
+            setIsProcessing(true);
+            // 3. Verify Payment
+            const verification = await backend.functions.invoke('verify-razorpay-payment', {
+              body: {
+                razorpay_order_id: rpResponse.razorpay_order_id,
+                razorpay_payment_id: rpResponse.razorpay_payment_id,
+                razorpay_signature: rpResponse.razorpay_signature,
+              }
+            });
 
-          if (verification.data?.isValid) {
-            handleConfirmPayment(); // Standard success flow
-          } else {
-            toast({ title: 'Verification Failed', description: 'Transaction integrity check failed.', variant: 'destructive' });
+            if (verification.data?.isValid) {
+              // 4. VERIFIED: Now Create Auth and Student Record
+              await finalizeRegistration(registrationData, rpResponse.razorpay_payment_id);
+            } else {
+              toast({ title: 'Verification Failed', description: 'Payment verification failed. Please contact support.', variant: 'destructive' });
+            }
+          } catch (err: any) {
+            console.error('Finalization error:', err);
+            toast({ title: 'Recovery Error', description: 'Payment was successful, but account creation failed. Please contact us with your Payment ID: ' + rpResponse.razorpay_payment_id, variant: 'destructive' });
+          } finally {
+            setIsProcessing(false);
           }
         },
         prefill: {
-          name: student.name,
-          email: student.email,
-          contact: student.mobile,
+          name: registrationData.name,
+          email: registrationData.email,
+          contact: registrationData.mobile,
         },
         theme: {
           color: '#1e3a5f',
         },
+        modal: {
+          ondismiss: function() {
+            setIsProcessing(false);
+          }
+        }
       };
 
       const rzp = new (window as any).Razorpay(options);
@@ -102,40 +107,83 @@ export function PaymentPage() {
         description: error.message || 'Failed to initiate secure payment.',
         variant: 'destructive',
       });
-    } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const finalizeRegistration = async (data: any, paymentId: string) => {
+    try {
+      // A. Create Auth User
+      const { data: authData, error: authError } = await backend.auth.signUp({
+        email: data.email,
+        password: data.password || 'password123',
+      });
+
+      if (authError) {
+        // Handle case where they might have actually registered in parallel 
+        // or we need to login instead
+        if (authError.message.toLowerCase().includes('already registered')) {
+          await backend.auth.signInWithPassword({
+            email: data.email,
+            password: data.password || 'password123',
+          });
+        } else {
+          throw authError;
+        }
+      }
+
+      const { data: { user } } = await backend.auth.getUser();
+      if (!user) throw new Error('Auth finalization failed.');
+
+      // B. Create Student Record
+      const student = await addStudent({
+        name: data.name,
+        fatherName: data.fatherName,
+        class: data.class,
+        mobile: data.mobile,
+        email: data.email,
+        schoolName: data.schoolName,
+        schoolContact: data.schoolContact,
+        addressVillage: data.addressVillage,
+        addressBlock: data.addressBlock,
+        addressTahsil: data.addressTahsil,
+        addressDistrict: data.addressDistrict,
+        addressState: data.addressState,
+        photoUrl: data.photoUrl,
+        password: data.password,
+        referredByCenter: data.referralType === 'CENTER' ? data.referredBy : undefined,
+        referredByStudent: data.referralType === 'STUDENT' ? data.referredBy : undefined,
+      }, user.id);
+
+      if (!student) throw new Error('Database registration failed.');
+
+      // C. Update status to ACTIVE / SUCCESS
+      await backend.from('students').update({ status: 'ACTIVE', payment_status: 'success' }).eq('id', user.id);
+      
+      setNewStudent(student);
+      setShowSuccessPopup(true);
+      
+      toast({ title: 'Success! ✅', description: 'Payment verified and registration complete.' });
+
+    } catch (err: any) {
+      console.error('Finalize error:', err);
+      throw err;
+    }
+  };
+
+  const handleGoToDashboard = () => {
+    setShowSuccessPopup(false);
+    if (newStudent) {
+      navigate(`/student-dashboard?student_id=${newStudent.id}`);
+    } else {
+      navigate('/login');
     }
   };
 
   const handleConfirmPayment = async () => {
-    if (!studentId) return;
-    setIsProcessing(true);
-    try {
-      // Update both 'status' and 'payment_status'
-      await updateStudent(studentId, { 
-        status: 'ACTIVE', 
-        payment_status: 'Paid' 
-      });
-
-      // Update local state to show 'Paid'
-      setStudent((prev: any) => prev ? { ...prev, status: 'ACTIVE', payment_status: 'Paid' } : null);
-      
-      setShowSuccessPopup(true);
-      toast({
-        title: 'Payment Confirmed! ✅',
-        description: 'Registration successful. Please login now.',
-      });
-    } catch (err) {
-      console.error('Confirm error:', err);
-      toast({ title: 'Confirmation Failed', description: 'Please try again.', variant: 'destructive' });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleGoToLogin = () => {
-    setShowSuccessPopup(false);
-    navigate('/login');
+    // This is for fallback if webhook/handler misses
+    toast({ title: 'Processing', description: 'Verifying your payment records...' });
+    // In this post-pay flow, we'd normally wait for the handler above.
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -151,7 +199,7 @@ export function PaymentPage() {
     );
   }
 
-  const examFee = getExamFee(student?.class || 0);
+  const examFee = getExamFee(registrationData?.class || 0);
 
   return (
     <div className="min-h-screen bg-background py-12 px-4">
@@ -192,11 +240,11 @@ export function PaymentPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center p-4 bg-background rounded-2xl border border-border">
                     <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Student Name</span>
-                    <span className="font-black text-foreground">{student?.name}</span>
+                    <span className="font-black text-foreground">{registrationData?.name}</span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-background rounded-2xl border border-border">
                     <span className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Class Selected</span>
-                    <span className="font-black text-foreground">Class {student?.class}</span>
+                    <span className="font-black text-foreground">Class {registrationData?.class}</span>
                   </div>
                   <div className="flex justify-between items-center p-6 institutional-gradient rounded-2xl border border-primary/20 shadow-lg">
                     <div className="text-white">
@@ -218,22 +266,13 @@ export function PaymentPage() {
                   </Button>
                   
                   <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-4">Already paid on Razorpay?</p>
-                    <Button 
-                      variant="outline"
-                      onClick={handleConfirmPayment}
-                      disabled={isProcessing}
-                      className="w-full h-14 rounded-2xl border-green-200 text-green-700 hover:bg-green-50 font-black"
-                    >
-                      I have completed my payment <ArrowRight className="ml-2 size-4" />
-                    </Button>
+                    <p className="text-xs text-muted-foreground font-medium mb-2">Secure Payment Gateway</p>
+                    <div className="flex items-center justify-center gap-6 opacity-50 grayscale hover:grayscale-0 transition-all">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" alt="UPI" className="h-4" />
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/d/d1/RuPay.svg" alt="RuPay" className="h-4" />
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3" />
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-6 pt-4 opacity-50 grayscale hover:grayscale-0 transition-all">
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" alt="UPI" className="h-4" />
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/d/d1/RuPay.svg" alt="RuPay" className="h-4" />
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3" />
                 </div>
               </CardContent>
             </Card>
@@ -249,7 +288,7 @@ export function PaymentPage() {
             <div className="bg-gradient-to-br from-background to-secondary/20 p-8 rounded-[2.5rem] border border-border">
               <h3 className="text-xl font-black text-foreground mb-6 flex items-center gap-3 tracking-tight">
                 <Shield className="size-6 text-primary" />
-                Why Hosted Payment?
+                Enrollment Security
               </h3>
               <ul className="space-y-6">
                 <li className="flex gap-4">
@@ -257,8 +296,8 @@ export function PaymentPage() {
                     <span className="text-primary font-black text-xs">01</span>
                   </div>
                   <div>
-                    <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Enhanced Security</p>
-                    <p className="text-muted-foreground text-xs leading-relaxed">Transactions are processed directly on Razorpay's bank-grade secure infrastructure.</p>
+                    <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Success-Only Registration</p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">Your account is created only after the bank confirms your payment success.</p>
                   </div>
                 </li>
                 <li className="flex gap-4">
@@ -266,27 +305,11 @@ export function PaymentPage() {
                     <span className="text-primary font-black text-xs">02</span>
                   </div>
                   <div>
-                    <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Zero Downtime</p>
-                    <p className="text-muted-foreground text-xs leading-relaxed">Direct connection reduces server load, ensuring your payment is never stuck.</p>
-                  </div>
-                </li>
-                <li className="flex gap-4">
-                  <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                    <span className="text-primary font-black text-xs">03</span>
-                  </div>
-                  <div>
                     <p className="font-bold text-foreground text-sm uppercase tracking-wider mb-1">Instant Activation</p>
-                    <p className="text-muted-foreground text-xs leading-relaxed">Once you confirm, your credentials will be generated instantly.</p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">Once you pay, you will be redirected straight to your dashboard with all credentials.</p>
                   </div>
                 </li>
               </ul>
-            </div>
-
-            <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 flex gap-4">
-              <AlertCircle className="size-6 text-blue-600 shrink-0 mt-1" />
-              <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                After successful payment on Razorpay, please return to this page and click the <strong>"I have completed my payment"</strong> button to receive your login credentials.
-              </p>
             </div>
           </motion.div>
         </div>
@@ -294,15 +317,15 @@ export function PaymentPage() {
 
       {/* Success Dialog */}
       <Dialog open={showSuccessPopup} onOpenChange={setShowSuccessPopup}>
-        <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none bg-background shadow-3xl">
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none bg-background shadow-3xl" onInteractOutside={(e) => e.preventDefault()}>
           <div className="p-8 pb-0 flex flex-col items-center text-center">
             <div className="size-20 bg-green-100 rounded-[1.5rem] flex items-center justify-center mb-6 shadow-inner">
               <CheckCircle className="size-12 text-green-600" />
             </div>
             <DialogHeader className="space-y-2">
-              <DialogTitle className="text-3xl font-black text-foreground tracking-tight">Registration Successful</DialogTitle>
+              <DialogTitle className="text-3xl font-black text-foreground tracking-tight">Payment Successful</DialogTitle>
               <DialogDescription className="text-base font-bold italic text-muted-foreground">
-                Your account is now fully active. Please save your credentials.
+                Registration Complete. Your account is now active.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -310,23 +333,12 @@ export function PaymentPage() {
           <div className="p-8 space-y-4">
             <div className="p-6 bg-secondary/20 rounded-3xl border border-border space-y-4">
               <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your User ID</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Student ID</p>
                 <div className="flex gap-2">
                   <div className="flex-1 h-12 bg-background border border-border rounded-xl flex items-center px-4 font-mono font-bold text-foreground truncate">
-                    {student?.email}
+                    {newStudent?.email}
                   </div>
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(student?.email, 'User ID')} className="h-12 w-12 rounded-xl">
-                    <Copy className="size-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Password</p>
-                <div className="flex gap-2">
-                  <div className="flex-1 h-12 bg-background border border-border rounded-xl flex items-center px-4 font-mono font-bold text-foreground">
-                    {student?.password || '••••••••'}
-                  </div>
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(student?.password || '', 'Password')} className="h-12 w-12 rounded-xl">
+                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(newStudent?.email, 'User ID')} className="h-12 w-12 rounded-xl">
                     <Copy className="size-4" />
                   </Button>
                 </div>
@@ -334,10 +346,10 @@ export function PaymentPage() {
             </div>
 
             <Button 
-              onClick={handleGoToLogin}
+              onClick={handleGoToDashboard}
               className="w-full h-16 rounded-2xl institutional-gradient text-white font-black text-lg shadow-[0_0_20px_rgba(255,165,0,0.3)] hover:scale-[1.02] transition-transform"
             >
-              Go to Login Page <LogIn className="ml-2 size-5" />
+              Go to Dashboard <LogIn className="ml-2 size-5" />
             </Button>
           </div>
         </DialogContent>

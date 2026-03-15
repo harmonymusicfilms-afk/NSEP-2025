@@ -52,11 +52,44 @@ export function StudentDashboard() {
   const { loadWallets, getWalletByStudent, isLoading: walletsLoading } = useWalletStore();
   const { loadRewards, getRewardsByOwner, isLoading: rewardsLoading } = useCenterRewardStore();
   const { updateStudent } = useStudentStore();
+  const [urlStudent, setUrlStudent] = useState<any>(null);
+  const [isFetchingUrlStudent, setIsFetchingUrlStudent] = useState(false);
+  const [searchParams] = useSearchParams();
+  const studentIdParam = searchParams.get('student_id');
+  const navigate = useNavigate();
+
+  // Handle direct redirection via student_id query param
+  useEffect(() => {
+    async function fetchIndividualStudent() {
+      if (studentIdParam) {
+        setIsFetchingUrlStudent(true);
+        try {
+          const { data, error } = await backend
+            .from('students')
+            .select('*')
+            .eq('id', studentIdParam)
+            .maybeSingle();
+          
+          if (data) {
+            setUrlStudent(data);
+          }
+        } catch (err) {
+          console.error('Error fetching student from URL:', err);
+        } finally {
+          setIsFetchingUrlStudent(false);
+        }
+      }
+    }
+    fetchIndividualStudent();
+  }, [studentIdParam]);
+
+  const student = urlStudent || currentStudent;
+  const isStudentLoading = authLoading || isFetchingUrlStudent;
 
   // Photo upload handler
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !currentStudent) return;
+    if (!file || !student) return;
 
     // Validate file type
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -82,7 +115,7 @@ export function StudentDashboard() {
       const compressedFile = new File([blob], file.name, { type: blob.type || 'image/jpeg' });
 
       // Upload to storage
-      const fileName = `${currentStudent.id}_${Date.now()}.${fileExt}`;
+      const fileName = `${student.id}_${Date.now()}.${fileExt}`;
       const { error: uploadError } = await backend.storage
         .from('student-photos')
         .upload(fileName, compressedFile, { contentType: compressedFile.type });
@@ -95,7 +128,7 @@ export function StudentDashboard() {
         .getPublicUrl(fileName);
 
       // Update student record
-      await updateStudent(currentStudent.id, { photoUrl: publicUrl });
+      await updateStudent(student.id, { photoUrl: publicUrl });
 
       compressToast.dismiss();
       toast({ title: "Success ✓", description: "Passport photo uploaded successfully." });
@@ -110,20 +143,20 @@ export function StudentDashboard() {
 
   // Remove photo handler
   const handleRemovePhoto = async () => {
-    if (!currentStudent?.photoUrl) return;
+    if (!student?.photoUrl) return;
 
     if (!confirm('Are you sure you want to remove your passport photo?')) return;
 
     setIsUploading(true);
     try {
       // Extract file path from URL
-      const urlMatches = currentStudent.photoUrl.match(/student-photos\/(.+)$/);
+      const urlMatches = student.photoUrl.match(/student-photos\/(.+)$/);
       if (urlMatches && urlMatches[1]) {
         await backend.storage.from('student-photos').remove([urlMatches[1]]);
       }
 
       // Update student record
-      await updateStudent(currentStudent.id, { photoUrl: undefined });
+      await updateStudent(student.id, { photoUrl: undefined });
       toast({ title: "Success", description: "Photo removed successfully." });
     } catch (error) {
       toast({ title: "Error", description: "Failed to remove photo.", variant: "destructive" });
@@ -133,17 +166,31 @@ export function StudentDashboard() {
   };
 
   useEffect(() => {
-    if (currentStudent) {
+    if (student) {
       loadPayments();
       loadExamData();
       loadWallets();
       loadRewards();
     }
-  }, [currentStudent, loadPayments, loadExamData, loadWallets, loadRewards]);
+  }, [student, loadPayments, loadExamData, loadWallets, loadRewards]);
 
-  const isLoading = authLoading || paymentsLoading || examsLoading || walletsLoading || rewardsLoading;
+  // Security check: Only allow access if payment is success
+  useEffect(() => {
+    if (!isStudentLoading && student && student.payment_status !== 'success') {
+      toast({ 
+        title: 'Payment Required', 
+        description: 'Please complete your payment to access the dashboard.', 
+        variant: 'destructive' 
+      });
+      // Carry forward the registration data if possible, or just send to general payment
+      // For now, redirect to login or check if they have a session
+      navigate('/login');
+    }
+  }, [student, isStudentLoading, navigate]);
 
-  if (isLoading || !currentStudent) {
+  const isLoading = isStudentLoading || paymentsLoading || examsLoading || walletsLoading || rewardsLoading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -151,17 +198,27 @@ export function StudentDashboard() {
     );
   }
 
-  const hasPaid = hasSuccessfulPayment(currentStudent.id);
-  const examCompleted = hasCompletedExam(currentStudent.id);
-  const examResult = results.find((r) => r.studentId === currentStudent.id);
-  const wallet = getWalletByStudent(currentStudent.id);
-  const myRewards = getRewardsByOwner(currentStudent.id);
-  const examFee = getExamFee(currentStudent.class);
+  if (!student) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <AlertTriangle className="size-12 text-yellow-500" />
+        <h2 className="text-2xl font-bold">Student Not Found</h2>
+        <Button onClick={() => navigate('/login')}>Return to Login</Button>
+      </div>
+    );
+  }
+
+  const hasPaid = student.payment_status === 'success';
+  const examCompleted = hasCompletedExam(student.id);
+  const examResult = results.find((r) => r.studentId === student.id);
+  const wallet = getWalletByStudent(student.id);
+  const myRewards = getRewardsByOwner(student.id);
+  const examFee = getExamFee(student.class);
 
   const getNextStep = () => {
-    if (currentStudent.status === 'PENDING') {
+    if (student.status === 'PENDING') {
       if (hasPaid) return { action: 'Activate Account', link: '/dashboard', urgent: true };
-      return { action: 'Complete Payment', link: `/payment?studentId=${currentStudent.id}`, urgent: true };
+      return { action: 'Complete Payment', link: `/payment?studentId=${student.id}`, urgent: true };
     }
     return { action: 'View Results', link: '/dashboard/results', urgent: false };
   };
@@ -180,8 +237,8 @@ export function StudentDashboard() {
           {/* Profile Photo Section */}
           <div className="relative group">
             <div className="size-24 rounded-full border-4 border-white/20 shadow-xl overflow-hidden bg-muted flex items-center justify-center">
-              {currentStudent.photoUrl ? (
-                <img src={currentStudent.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+              {student.photoUrl ? (
+                <img src={student.photoUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <User className="size-10 text-white/40" />
               )}
@@ -191,7 +248,7 @@ export function StudentDashboard() {
                 </div>
               )}
             </div>
-            {currentStudent.photoUrl && !isUploading && (
+            {student.photoUrl && !isUploading && (
               <button
                 onClick={handleRemovePhoto}
                 className="absolute -top-1 -right-1 size-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -215,17 +272,22 @@ export function StudentDashboard() {
               className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-7 px-3 text-[10px] font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <Camera className="size-3 mr-1" />
-              {currentStudent.photoUrl ? 'Change' : 'Upload'}
+              {student.photoUrl ? 'Change' : 'Upload'}
             </Button>
           </div>
 
           <div>
             <h1 className="text-4xl lg:text-5xl font-black text-foreground tracking-tighter mb-2">
-              Welcome, <span className="premium-text-gradient">{currentStudent.name}!</span>
+              Welcome, <span className="premium-text-gradient">{student.name}!</span>
             </h1>
-            <p className="text-muted-foreground font-bold italic text-lg">
-              Class {currentStudent.class} • {currentStudent.schoolName}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-bold italic text-sm">
+              <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full not-italic">ID: {student.email}</span>
+              <span>Class {student.class}</span>
+              <span>•</span>
+              <span>{student.address_district || student.addressDistrict}</span>
+              <span>•</span>
+              <span>Registered: {formatDate(student.created_at)}</span>
+            </div>
           </div>
         </motion.div>
 
@@ -270,9 +332,9 @@ export function StudentDashboard() {
                 size="sm"
                 className="w-full mt-4 h-10 rounded-xl bg-green-500 text-white font-black text-[10px] tracking-widest uppercase hover:bg-green-600 shadow-lg shadow-green-500/20"
                 onClick={async () => {
-                  const pendingPayment = payments.find(p => p.studentId === currentStudent.id && p.status === 'PENDING');
+                  const pendingPayment = payments.find(p => p.studentId === student.id && p.status === 'PENDING');
                   if (pendingPayment) {
-                    if (confirm(`Approve payment for ${currentStudent.name}?`)) {
+                    if (confirm(`Approve payment for ${student.name}?`)) {
                       await usePaymentStore.getState().approvePayment(pendingPayment.id);
                       toast({ title: "Approved ✅", description: "Payment approved successfully." });
                     }
@@ -376,11 +438,11 @@ export function StudentDashboard() {
 
                   <div className="flex flex-col sm:flex-row items-stretch gap-4">
                     <div className="flex-1 px-6 py-4 bg-secondary/20 rounded-2xl border border-border font-mono text-sm text-primary font-black break-all flex items-center">
-                      {typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${currentStudent.referralCode || currentStudent.centerCode}` : ''}
+                      {typeof window !== 'undefined' ? `${window.location.origin}/register?ref=${student.referralCode || student.centerCode}` : ''}
                     </div>
                     <Button
                       onClick={() => {
-                        const link = `${window.location.origin}/register?ref=${currentStudent.referralCode || currentStudent.centerCode}`;
+                        const link = `${window.location.origin}/register?ref=${student.referralCode || student.centerCode}`;
                         navigator.clipboard.writeText(link);
                         setCopied(true);
                         toast({ title: "Signal Cached! 📋", description: "Referral link copied to memory." });
@@ -398,7 +460,7 @@ export function StudentDashboard() {
                   <div className="bg-background p-6 rounded-[2rem] border border-border flex flex-col justify-center">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-2">Unique Identification Code</p>
                     <p className="text-3xl font-mono font-black text-foreground tracking-[0.3em]">
-                      {currentStudent.referralCode || currentStudent.centerCode}
+                      {student.referralCode || student.centerCode}
                     </p>
                   </div>
                   <div className="bg-background p-6 rounded-[2rem] border border-border flex items-center gap-5">
@@ -423,8 +485,8 @@ export function StudentDashboard() {
               <h3 className="text-2xl font-black text-foreground tracking-tighter">Quick Actions</h3>
             </div>
             <div className="p-8 space-y-4 flex-1">
-              {currentStudent.status === 'PENDING' && (
-                <Link to={`/payment?studentId=${currentStudent.id}`} className="block">
+              {student.status === 'PENDING' && (
+                <Link to={`/payment?studentId=${student.id}`} className="block">
                   <Button className="w-full h-14 rounded-2xl justify-between gap-3 institutional-gradient px-6 font-black uppercase text-xs tracking-widest transition-transform hover:scale-[1.02]">
                     <span className="flex items-center gap-3">
                       <ArrowRight className="size-5" />

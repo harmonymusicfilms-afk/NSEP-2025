@@ -210,66 +210,19 @@ export function RegisterPage() {
 
     setIsSubmitting(true);
     try {
-      // 0. Check for existing session (if user is already logged in)
-      const { data: { session } } = await backend.auth.getSession();
-      let authData = session;
-      let authError = null;
+      // Pre-check: See if email is already managed by Auth (optional but helpful)
+      // Since we don't want to create the user yet, we'll just carry the data.
+      
+      const registrationData = {
+        ...formData,
+        referralType,
+        referredBy: formData.referredByCenter.toUpperCase(), // Map both to same field for now
+      };
 
-      if (!session) {
-        // 1. SignUp with backend Auth (Silent Recovery for existing users)
-        const signUpResult = await backend.auth.signUp({
-          email: formData.email,
-          password: formData.password || 'password123',
-        });
-        authData = signUpResult.data as any;
-        authError = signUpResult.error;
-
-        // If signup fails, ALMOST ALWAYS try to sign in
-        if (authError) {
-          console.warn('Auth SignUp failed, attempting silent login:', authError.message);
-          const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
-            email: formData.email,
-            password: formData.password || 'password123',
-          });
-
-          if (signInError) {
-            if (signInError.message.toLowerCase().includes('invalid log')) {
-              throw new Error('This email is already registered. Please enter your correct password.');
-            }
-            throw signInError;
-          }
-          authData = signInData as any;
-          authError = null;
-        }
-      }
-
-      const userId = authData?.user?.id;
-      if (!userId) throw new Error('Authentication failed. User ID not found.');
-
-      // 2. Create Student Record as PENDING
-      const student = await addStudent({
-        name: formData.name.trim(),
-        fatherName: formData.fatherName.trim(),
-        class: formData.class,
-        mobile: formData.mobile.trim(),
-        email: formData.email.trim(),
-        schoolName: formData.schoolName.trim(),
-        schoolContact: formData.schoolContact.trim(),
-        addressVillage: formData.addressVillage.trim(),
-        addressBlock: formData.addressBlock.trim(),
-        addressTahsil: formData.addressTahsil.trim(),
-        addressDistrict: formData.addressDistrict.trim(),
-        addressState: formData.addressState,
-        photoUrl: formData.photoUrl,
-        password: formData.password,
-        referredByCenter: referralType === 'CENTER' ? formData.referredByCenter.toUpperCase() : undefined,
-        referredByStudent: referralType === 'STUDENT' ? formData.referredByCenter.toUpperCase() : undefined,
-      }, userId);
-
-      if (!student) throw new Error('Failed to save registration.');
-
-      toast({ title: 'Form Saved ✓', description: 'Redirecting to payment page...' });
-      navigate(`/payment?studentId=${student.id}`);
+      toast({ title: 'Ready', description: 'Proceeding to secure payment...' });
+      
+      // Redirect to payment page, carrying the form data in the state
+      navigate('/payment', { state: { registrationData } });
 
     } catch (error: any) {
       console.error('Registration Error:', error);
