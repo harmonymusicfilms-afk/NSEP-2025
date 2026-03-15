@@ -202,15 +202,19 @@ export function StudentDashboard() {
   }, [student, loadPayments, loadExamData, loadWallets, loadRewards]);
 
   // Security check: Only allow access if student exists
+  // Don't redirect if we're still fetching from URL parameter
   useEffect(() => {
-    if (!isStudentLoading && !student) {
+    if (!isStudentLoading && !isFetchingUrlStudent && !student && !studentIdParam) {
       navigate('/login');
     }
-  }, [student, isStudentLoading, navigate]);
+  }, [student, isStudentLoading, isFetchingUrlStudent, navigate, studentIdParam]);
 
   const isLoading = isStudentLoading || paymentsLoading || examsLoading || walletsLoading || rewardsLoading;
 
-  if (isLoading) {
+  // If there's a URL student ID parameter, don't show loading forever - show content once fetched
+  const showLoading = isLoading && (!studentIdParam || (studentIdParam && !isFetchingUrlStudent));
+
+  if (showLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
