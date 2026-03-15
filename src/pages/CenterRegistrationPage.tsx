@@ -282,28 +282,22 @@ export function CenterRegistrationPage() {
         console.warn("Auth signup error (non-critical):", authError.message);
       }
 
-      // Step B: Direct Insert attempt
+      // Step B: Direct Insert attempt (using user's schema column names)
       const centerData = {
-        id: center.id,
-        user_id: userId,
-        name: center.name,
+        center_name: center.name,
         center_type: center.centerType,
         owner_name: center.ownerName,
-        email: center.ownerEmail,
-        phone: center.ownerPhone,
-        owner_aadhaar: center.ownerAadhaar,
-        address: center.address,
+        owner_mobile: center.ownerPhone,
+        owner_email: center.ownerEmail,
+        center_address: center.address,
         village: center.village,
         block: center.block,
         district: center.district,
         state: center.state,
         pincode: center.pincode,
+        id_proof_url: center.idProofUrl,
         center_code: center.centerCode,
         status: 'PENDING',
-        id_proof_url: center.idProofUrl,
-        center_photo_url: center.centerPhotoUrl,
-        transaction_id: formData.transactionId,
-        payment_screenshot_url: formData.paymentScreenshotUrl,
       };
 
       const { error: insertError } = await backend.from('centers').insert([centerData]);
@@ -315,7 +309,7 @@ export function CenterRegistrationPage() {
           const { data: existing } = await backend
             .from('centers')
             .select('center_code')
-            .eq('email', formData.ownerEmail)
+            .eq('owner_email', formData.ownerEmail)
             .maybeSingle();
 
           if (existing) {

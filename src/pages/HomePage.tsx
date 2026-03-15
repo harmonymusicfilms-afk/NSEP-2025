@@ -343,36 +343,36 @@ export function HomePage() {
               {language === 'hi' ? 'छात्रवृत्ति पुरस्कार श्रेणियाँ' : 'Scholarship Rewards By Category'}
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              {language === 'hi' 
-                ? 'प्रत्येक श्रेणी के लिए आकर्षक छात्रवृत्ति राशि।' 
+              {language === 'hi'
+                ? 'प्रत्येक श्रेणी के लिए आकर्षक छात्रवृत्ति राशि।'
                 : 'Attractive scholarship amounts across all educational categories.'}
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { 
-                category: 'Primary', 
-                classes: '1-5', 
-                range: '₹2,000 - ₹10,000', 
+              {
+                category: 'Primary',
+                classes: '1-5',
+                range: '₹2,000 - ₹10,000',
                 ranks: '100+ Ranks',
                 color: 'from-blue-500/10 to-blue-600/5',
                 border: 'border-blue-200',
                 text: 'text-blue-700'
               },
-              { 
-                category: 'Junior', 
-                classes: '6-8', 
-                range: '₹2,500 - ₹12,000', 
+              {
+                category: 'Junior',
+                classes: '6-8',
+                range: '₹2,500 - ₹12,000',
                 ranks: '100+ Ranks',
                 color: 'from-green-500/10 to-green-600/5',
                 border: 'border-green-200',
                 text: 'text-green-700'
               },
-              { 
-                category: 'Senior', 
-                classes: '9-12', 
-                range: '₹3,000 - ₹15,000', 
+              {
+                category: 'Senior',
+                classes: '9-12',
+                range: '₹3,000 - ₹15,000',
                 ranks: '100+ Ranks',
                 color: 'from-purple-500/10 to-purple-600/5',
                 border: 'border-purple-200',
@@ -460,12 +460,6 @@ export function HomePage() {
 
 
               <div className="flex flex-wrap gap-4">
-                <Link to="/center-registration">
-                  <Button size="lg" className="h-14 px-8 bg-primary text-white rounded-lg font-bold text-lg">
-                    <Gift className="size-5 mr-2" />
-                    {language === 'hi' ? 'रजिस्टर करें' : 'Register Center'}
-                  </Button>
-                </Link>
                 <Link to="/about">
                   <Button size="lg" variant="outline" className="h-14 px-8 rounded-lg font-medium text-lg border-gray-300">
                     Details

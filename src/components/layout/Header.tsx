@@ -31,7 +31,6 @@ export function Header() {
     { href: '/gallery', label: t('nav.gallery') },
     { href: '/contact', label: t('nav.contact') },
     { href: '/verify', label: t('nav.verify') },
-    { href: '/center-registration', label: 'Register Center' },
   ];
 
   return (

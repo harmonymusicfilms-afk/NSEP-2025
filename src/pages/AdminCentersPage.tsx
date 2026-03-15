@@ -71,31 +71,23 @@ export function AdminCentersPage() {
 
   const mapCenter = (data: any): Center => ({
     id: data.id,
-    userId: data.user_id,
-    name: data.name,
-    centerType: data.center_type,
-    ownerName: data.owner_name,
-    ownerPhone: data.phone,
-    ownerEmail: data.email,
-    email: data.email, // Added this to avoid undefined in table
-    ownerAadhaar: data.owner_aadhaar,
-    address: data.address,
-    village: data.village,
-    block: data.block,
-    state: data.state,
-    district: data.district,
-    pincode: data.pincode,
-    centerCode: data.center_code,
-    status: data.status,
-    idProofUrl: data.id_proof_url,
-    addressProofUrl: data.address_proof_url,
-    centerPhotoUrl: data.center_photo_url,
-    approvedBy: data.approved_by,
-    approvedAt: data.approved_at,
-    rejectionReason: data.rejection_reason,
-    totalStudents: data.total_students || 0,
-    totalEarnings: Number(data.total_earnings || 0),
-    createdAt: data.created_at,
+    name: data.center_name || '',
+    centerType: data.center_type || '',
+    ownerName: data.owner_name || '',
+    ownerPhone: data.owner_mobile || '',
+    ownerEmail: data.owner_email || '',
+    address: data.center_address || '',
+    village: data.village || '',
+    block: data.block || '',
+    state: data.state || '',
+    district: data.district || '',
+    pincode: data.pincode || '',
+    centerCode: data.center_code || '',
+    status: data.status || 'PENDING',
+    idProofUrl: data.id_proof_url || '',
+    createdAt: data.created_at || new Date().toISOString(),
+    totalStudents: 0,
+    totalEarnings: 0,
   });
 
   useEffect(() => {
@@ -133,51 +125,30 @@ export function AdminCentersPage() {
     if (!selectedCenter || !currentAdmin) return;
 
     try {
+      // Generate center code if not exists
+      let finalCenterCode = selectedCenter.centerCode;
+      if (!finalCenterCode) {
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        finalCenterCode = `CTR${randomNum}`;
+      }
+
       // 1. Update center status in backend
       const { error: updateError } = await backend
         .from('centers')
         .update({
           status: 'APPROVED',
-          approved_by: currentAdmin.id,
-          approved_at: new Date().toISOString(),
+          center_code: finalCenterCode,
         })
         .eq('id', selectedCenter.id);
 
       if (updateError) throw updateError;
 
-      // 2. Create referral code in backend
-      const { error: refError } = await backend
-        .from('referral_codes')
-        .insert([{
-          code: selectedCenter.centerCode,
-          type: 'CENTER_CODE',
-          owner_id: selectedCenter.id,
-          owner_name: selectedCenter.name,
-          reward_amount: REFERRAL_CONFIG.centerCodeReward,
-          is_active: true,
-          total_referrals: 0,
-          total_earnings: 0,
-        }]);
-
-      if (refError) console.warn('Referral code creation failed:', refError);
-
-      // 3. Send email
-      sendEmailNotification(
-        'CENTER_APPROVED',
-        selectedCenter.ownerEmail,
-        {
-          studentName: selectedCenter.ownerName,
-          studentEmail: selectedCenter.ownerEmail,
-          centerName: selectedCenter.name,
-          centerCode: selectedCenter.centerCode,
-          date: new Date().toISOString(),
-        }
-      );
-
       toast({
         title: 'Center Approved',
-        description: `${selectedCenter.name} has been approved.`,
+        description: `${selectedCenter.name} has been approved. Center Code: ${finalCenterCode}`,
       });
+
+      loadCenters();
 
       addLog(currentAdmin.id, 'APPROVE_CENTER', selectedCenter.id, `Approved center ${selectedCenter.name}`);
       loadCenters();
@@ -208,10 +179,7 @@ export function AdminCentersPage() {
       const { error } = await backend
         .from('centers')
         .update({
-          status: 'BLOCKED',
-          rejection_reason: rejectionReason,
-          approved_by: currentAdmin.id,
-          approved_at: new Date().toISOString(),
+          status: 'REJECTED',
         })
         .eq('id', selectedCenter.id);
 
@@ -223,7 +191,6 @@ export function AdminCentersPage() {
         variant: 'destructive',
       });
 
-      addLog(currentAdmin.id, 'REJECT_CENTER', selectedCenter.id, `Rejected center ${selectedCenter.name}. Reason: ${rejectionReason}`);
       loadCenters();
     } catch (err: any) {
       toast({
