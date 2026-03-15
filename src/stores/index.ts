@@ -606,12 +606,17 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
 
   addStudent: async (data, userId) => {
+    if (!data.name?.trim()) {
+      throw new Error("Full name is required");
+    }
+
     const centerCode = generateCenterCode();
     const referralCode = generateStudentReferralCode(userId);
     console.log('Adding student to DB...', { userId, centerCode, referralCode });
     try {
       const studentData = {
         id: userId,
+        full_name: data.name,
         name: data.name,
         father_name: data.fatherName,
         class: data.class,
@@ -630,7 +635,6 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         referral_code: referralCode,
         referred_by_center: data.referredByCenter || null,
         referred_by_center_code: data.referredByCenter || null,
-        referred_by_student: data.referredByStudent || null,
         referred_by_student: data.referredByStudent || null,
         status: 'PENDING',
         payment_status: 'Pending',
