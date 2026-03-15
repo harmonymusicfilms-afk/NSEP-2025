@@ -69,20 +69,21 @@ export function PaymentPage() {
     try {
       const isManual = paymentId.startsWith('MANUAL_');
       
-      const uniqueEmail = `reg_${Date.now()}_${data.email}`;
-      
-      // A. Create Auth User with a unique temporary email
+      // A. Create Auth User with the provided email
       const { data: authData, error: authError } = await backend.auth.signUp({
-        email: uniqueEmail,
+        email: data.email,
         password: data.password || 'password123',
       });
 
       if (authError) {
         if (authError.message.toLowerCase().includes('already registered')) {
-          await backend.auth.signInWithPassword({
+          const { error: signInError } = await backend.auth.signInWithPassword({
             email: data.email,
             password: data.password || 'password123',
           });
+          if (signInError) {
+            throw new Error('This email is already registered with a different password. Please log in or use a different email.');
+          }
         } else {
           throw authError;
         }
