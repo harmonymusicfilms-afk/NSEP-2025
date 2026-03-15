@@ -612,11 +612,12 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
     const centerCode = generateCenterCode();
     const referralCode = generateStudentReferralCode(userId);
+    console.log('DEBUG: addStudent receiving data:', data);
     console.log('Adding student to DB...', { userId, centerCode, referralCode });
     try {
       const studentData = {
         id: userId,
-        full_name: data.name,
+        full_name: data.name, // Ensure this matches exactly the DB column name
         name: data.name,
         father_name: data.fatherName,
         class: data.class,
@@ -641,6 +642,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         password: data.password || '',
         class_selected: data.class,
       };
+
+      console.log('DEBUG: Final studentData for DB:', studentData);
 
       const { data: newStudent, error } = await backend
         .from('students')
@@ -683,7 +686,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     try {
       // Map frontend camelCase to backend snake_case if they exist in data
       const dbUpdate: any = { ...data };
-      if (data.name) dbUpdate.name = data.name;
+      if (data.name) {
+        dbUpdate.name = data.name;
+        dbUpdate.full_name = data.name;
+      }
       if (data.fatherName) dbUpdate.father_name = data.fatherName;
       if (data.class) {
         dbUpdate.class = data.class;

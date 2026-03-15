@@ -157,7 +157,7 @@ export function RegisterPage() {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
     // Detailed Field Validation
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.name?.trim()) newErrors.name = 'Full name is required';
     if (!formData.fatherName.trim()) newErrors.fatherName = "Father's name is required";
     if (!formData.class) newErrors.class = 'Class is required';
     
@@ -229,7 +229,7 @@ export function RegisterPage() {
       const currentErrors = errors; // Note: validationForm sets state, might need local check
       
       // Re-run local check for immediate feedback logic
-      if (!formData.name.trim()) missingFields.push('Name');
+      if (!formData.name?.trim()) missingFields.push('Full Name');
       if (!formData.fatherName.trim()) missingFields.push('Father Name');
       if (!formData.class) missingFields.push('Class');
       if (!formData.mobile.trim() || !isValidMobile(formData.mobile)) missingFields.push('Valid Mobile');
