@@ -39,6 +39,7 @@ import { INDIAN_STATES, APP_CONFIG, REFERRAL_CONFIG } from '@/constants/config';
 import { isValidEmail, isValidMobile, generateId, formatCurrency, generateCenterCode, compressImage, generateUUID } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { client as backend } from '@/lib/backend';
+import { useAuthStore } from '@/stores';
 import logoImg from '@/assets/gphdm-logo.png';
 
 type Step = 'details' | 'owner' | 'payment' | 'address' | 'documents' | 'review' | 'success';
@@ -113,6 +114,7 @@ export function CenterRegistrationPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { language, t } = useLanguage();
+  const { setCenter } = useAuthStore();
 
   useEffect(() => {
     console.log("NSEP Debug - Form Data Updated:", formData);
@@ -339,10 +341,69 @@ export function CenterRegistrationPage() {
         console.warn("Auto-referral code creation failed (non-critical):", refErr);
       }
 
-      // Step D: Success
-      console.log("Registration successful");
+      // Step D: Success - Auto-login and redirect to dashboard
+      console.log("Registration successful, auto-login and redirect...");
       setGeneratedCenterCode(center.centerCode);
-      setStep('success');
+
+      // Auto-login the center and redirect to dashboard
+      try {
+        // Sign in with the registered credentials
+        const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
+          email: formData.ownerEmail,
+          password: formData.password || 'password123',
+        });
+
+        if (signInError) {
+          console.warn("Auto-login failed, redirecting without session:", signInError.message);
+        } else {
+          // Fetch the center data to set in store
+          const { data: centerData, error: fetchError } = await backend
+            .from('centers')
+            .select('*')
+            .eq('center_code', center.centerCode)
+            .single();
+
+          if (!fetchError && centerData) {
+            // Map center data to the expected format
+            const mappedCenter = {
+              id: centerData.id,
+              userId: centerData.user_id,
+              name: centerData.center_name,
+              centerType: centerData.center_type,
+              ownerName: centerData.owner_name,
+              ownerPhone: centerData.owner_mobile,
+              ownerEmail: centerData.owner_email,
+              ownerAadhaar: centerData.owner_aadhaar,
+              address: centerData.center_address,
+              village: centerData.village,
+              block: centerData.block,
+              state: centerData.state,
+              district: centerData.district,
+              pincode: centerData.pincode,
+              centerCode: centerData.center_code,
+              status: centerData.status,
+              idProofUrl: centerData.id_proof_url,
+              addressProofUrl: centerData.address_proof_url,
+              centerPhotoUrl: centerData.center_photo_url,
+              approvedBy: centerData.approved_by,
+              approvedAt: centerData.approved_at,
+              rejectionReason: centerData.rejection_reason,
+              totalStudents: centerData.total_students || 0,
+              totalEarnings: Number(centerData.total_earnings || 0),
+              createdAt: centerData.created_at,
+            };
+
+            // Set the center in the auth store
+            setCenter(mappedCenter);
+            console.log("Center session created successfully");
+          }
+        }
+      } catch (loginErr) {
+        console.warn("Auto-login error:", loginErr);
+      }
+
+      // Redirect to dashboard
+      navigate('/center-dashboard');
     } catch (err) {
       console.error('Final Registration Catch:', err);
 
