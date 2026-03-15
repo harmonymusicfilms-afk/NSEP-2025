@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { GraduationCap, LogIn, AlertCircle, Loader2 } from 'lucide-react';
+import { GraduationCap, LogIn, AlertCircle, Loader2, Building2, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,15 +13,18 @@ import { isValidEmail, isValidMobile } from '@/lib/utils';
 
 import { client as backend } from '@/lib/backend';
 
+type LoginType = 'student' | 'center' | 'admin';
+
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [loginType, setLoginType] = useState<LoginType>('student');
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { loginStudent, isStudentLoggedIn } = useAuthStore();
+  const { loginStudent, loginCenter, loginAdmin, isStudentLoggedIn } = useAuthStore();
   const { loadStudents, addStudent } = useStudentStore();
 
   useEffect(() => {
@@ -64,43 +67,76 @@ export function LoginPage() {
       if (error) throw error;
       if (!data.user) throw new Error('No user found');
 
-      const { data: studentData, error: studentError } = await backend
-        .from('students')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle();
+      // Handle based on login type
+      if (loginType === 'admin') {
+        // Admin login - check admins table
+        const { data: adminData, error: adminError } = await backend
+          .from('admins')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
 
-      if (studentData) {
-        let loggedIn = await loginStudent(email.toLowerCase().trim(), studentData.mobile);
-
-        if (!loggedIn) {
-          await addStudent({
-            name: studentData.name,
-            fatherName: studentData.father_name,
-            class: studentData.class || studentData.class_level,
-            mobile: studentData.mobile,
-            email: studentData.email,
-            schoolName: studentData.school_name,
-            schoolContact: studentData.school_contact,
-            addressVillage: studentData.address_village,
-            addressBlock: studentData.address_block,
-            addressTahsil: studentData.address_tahsil,
-            addressDistrict: studentData.address_district,
-            addressState: studentData.address_state,
-            referredByCenter: studentData.referred_by_center || undefined,
-            referredByStudent: studentData.referred_by_student || undefined
-          }, data.user.id);
-
-          loggedIn = await loginStudent(studentData.email, studentData.mobile);
+        if (adminData) {
+          toast({
+            title: 'Admin Login Successful',
+            description: 'Welcome to the admin dashboard!',
+          });
+          navigate('/admin/dashboard');
+          return;
+        } else {
+          throw new Error('Admin account not found');
         }
+      } else if (loginType === 'center') {
+        // Center login - check centers table
+        const { data: centerData, error: centerError } = await backend
+          .from('centers')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
 
-        toast({
-          title: 'Login Successful',
-          description: `Welcome back, ${studentData.name}!`,
-        });
-        navigate('/dashboard');
+        if (centerData) {
+          if (centerData.status !== 'APPROVED') {
+            throw new Error('Your center account is pending approval');
+          }
+          toast({
+            title: 'Center Login Successful',
+            description: `Welcome, ${centerData.name}!`,
+          });
+          navigate('/center/dashboard');
+          return;
+        } else {
+          throw new Error('Center account not found');
+        }
       } else {
-        throw new Error('Student profile not found');
+        // Student login - check students table
+        const { data: studentData, error: studentError } = await backend
+          .from('students')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (studentData) {
+          let loggedIn = await loginStudent(email.toLowerCase().trim(), studentData.mobile);
+
+          if (!loggedIn) {
+            await addStudent({
+              name: studentData.name,
+              fatherName: studentData.father_name,
+              class: studentData.class || studentData.class_level,
+              mobile: studentData.mobile,
+            }, data.user.id);
+
+            loggedIn = await loginStudent(studentData.email, studentData.mobile);
+          }
+
+          toast({
+            title: 'Login Successful',
+            description: `Welcome back, ${studentData.name}!`,
+          });
+          navigate('/dashboard');
+        } else {
+          throw new Error('Student profile not found');
+        }
       }
 
     } catch (error: any) {
@@ -131,7 +167,47 @@ export function LoginPage() {
               </div>
               <span className="text-2xl font-black text-foreground tracking-tighter">{APP_CONFIG.shortName}</span>
             </Link>
-            <h1 className="text-3xl font-black text-foreground mb-2">Student Access</h1>
+
+            {/* Login Type Tabs */}
+            <div className="flex justify-center gap-2 mb-6">
+              <button
+                type="button"
+                onClick={() => setLoginType('student')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${loginType === 'student'
+                  ? 'bg-primary text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+              >
+                <GraduationCap className="size-4" />
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginType('center')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${loginType === 'center'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+              >
+                <Building2 className="size-4" />
+                Center
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginType('admin')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${loginType === 'admin'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+              >
+                <Shield className="size-4" />
+                Admin
+              </button>
+            </div>
+
+            <h1 className="text-3xl font-black text-foreground mb-2">
+              {loginType === 'student' ? 'Student Access' : loginType === 'center' ? 'Center Login' : 'Admin Login'}
+            </h1>
             <p className="text-muted-foreground font-bold italic">Enter your credentials to continue.</p>
           </div>
 

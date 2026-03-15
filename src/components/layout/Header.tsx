@@ -31,6 +31,7 @@ export function Header() {
     { href: '/gallery', label: t('nav.gallery') },
     { href: '/contact', label: t('nav.contact') },
     { href: '/verify', label: t('nav.verify') },
+    { href: '/center-registration', label: 'Register Center' },
   ];
 
   return (
@@ -56,11 +57,10 @@ export function Header() {
               <Link
                 key={link.href}
                 to={link.href}
-                className={`text-sm font-medium transition-all hover:text-primary ${
-                  location.pathname === link.href
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`text-sm font-medium transition-all hover:text-primary ${location.pathname === link.href
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 {link.label}
               </Link>
@@ -86,6 +86,11 @@ export function Header() {
               </div>
             ) : !isAdminRoute ? (
               <div className="hidden sm:flex items-center gap-2">
+                <Link to="/center-registration">
+                  <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10">
+                    Register Center
+                  </Button>
+                </Link>
                 <Link to="/login">
                   <Button variant="ghost" size="sm">
                     {t('nav.login')}
@@ -131,11 +136,10 @@ export function Header() {
                   key={link.href}
                   to={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname === link.href
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-secondary/20'
-                  }`}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === link.href
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-secondary/20'
+                    }`}
                 >
                   {link.label}
                 </Link>
