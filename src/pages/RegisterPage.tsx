@@ -210,38 +210,41 @@ export function RegisterPage() {
 
     setIsSubmitting(true);
     try {
-      // 1. SignUp with backend Auth
-      let { data: authData, error: authError } = await backend.auth.signUp({
-        email: formData.email,
-        password: formData.password || 'password123',
-      });
+      // 0. Check for existing session (if user is already logged in)
+      const { data: { session } } = await backend.auth.getSession();
+      let authData = session;
+      let authError = null;
 
-      // Handle "Experience" where Auth user might exist but Student record doesn't
-      const isAlreadyRegistered = authError && (
-        authError.message.toLowerCase().includes('already registered') || 
-        authError.message.toLowerCase().includes('already exists') ||
-        (authError as any).status === 400 || 
-        (authError as any).status === 422
-      );
-
-      if (isAlreadyRegistered) {
-        // Attempt a silent login with the password they just entered
-        const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
+      if (!session) {
+        // 1. SignUp with backend Auth (Silent Recovery for existing users)
+        const signUpResult = await backend.auth.signUp({
           email: formData.email,
           password: formData.password || 'password123',
         });
+        authData = signUpResult.data as any;
+        authError = signUpResult.error;
 
-        if (signInError) {
-          throw new Error('This email is already registered. Please login with your correct password.');
+        // If signup fails, ALMOST ALWAYS try to sign in
+        if (authError) {
+          console.warn('Auth SignUp failed, attempting silent login:', authError.message);
+          const { data: signInData, error: signInError } = await backend.auth.signInWithPassword({
+            email: formData.email,
+            password: formData.password || 'password123',
+          });
+
+          if (signInError) {
+            if (signInError.message.toLowerCase().includes('invalid log')) {
+              throw new Error('This email is already registered. Please enter your correct password.');
+            }
+            throw signInError;
+          }
+          authData = signInData as any;
+          authError = null;
         }
-        authData = signInData;
-        authError = null;
       }
 
-      if (authError) throw authError;
-      
-      let userId = authData?.user?.id;
-      if (!userId) throw new Error('Authentication failed. Please try again.');
+      const userId = authData?.user?.id;
+      if (!userId) throw new Error('Authentication failed. User ID not found.');
 
       // 2. Create Student Record as PENDING
       const student = await addStudent({

@@ -645,7 +645,10 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .maybeSingle();
 
       if (error) {
-        console.error('backend students insert error:', error);
+        console.error('DATABASE ERROR (students upsert):', error.message, error.details, error.hint);
+        if (error.message.toLowerCase().includes('duplicate') || error.message.toLowerCase().includes('already exists')) {
+          throw new Error('This Mobile number or ID is already in use by another account.');
+        }
         throw error;
       }
 
