@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, Navigate, Link } from 'react-router-dom';
+import { Outlet, Navigate, Link, useSearchParams } from 'react-router-dom';
 import { Clock, XCircle, Menu, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -35,10 +35,14 @@ export function PublicLayout() {
 
 // Student dashboard layout with sidebar
 export function StudentLayout() {
-  const { isStudentLoggedIn } = useAuthStore();
+  const { isStudentLoggedIn, currentStudent } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const studentIdParam = searchParams.get('student_id');
 
-  if (!isStudentLoggedIn) {
+  // Allow access if either logged in OR has valid student_id in URL
+  // This handles post-registration redirect where auth context hasn't loaded yet
+  if (!isStudentLoggedIn && !currentStudent && !studentIdParam) {
     return <Navigate to="/login" replace />;
   }
 

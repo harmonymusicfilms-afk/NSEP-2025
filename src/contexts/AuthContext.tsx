@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const setStoreStudent = useAuthStore((state) => state.setStudent);
+    const setStoreCenter = useAuthStore((state) => state.setCenter);
 
     useEffect(() => {
         // Get initial session
@@ -29,7 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                fetchStudentProfile(session.user.id);
+                const role = session.user.metadata?.role as string;
+                if (role === 'CENTER') {
+                    fetchCenterProfile(session.user.id);
+                } else {
+                    fetchStudentProfile(session.user.id);
+                }
             } else {
                 setLoading(false);
             }
@@ -41,15 +47,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(session?.user ?? null);
 
             if (session?.user) {
-                fetchStudentProfile(session.user.id);
+                const role = session.user.metadata?.role as string;
+                if (role === 'CENTER') {
+                    fetchCenterProfile(session.user.id);
+                } else {
+                    fetchStudentProfile(session.user.id);
+                }
             } else {
                 setStudent(null);
                 setStoreStudent(null);
+                setStoreCenter(null);
                 setLoading(false);
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     const fetchStudentProfile = async (userId: string) => {
@@ -107,6 +121,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const fetchCenterProfile = async (userId: string) => {
+        try {
+            const { data, error } = await backend
+                .from('centers')
+                .select('*')
+                .eq('user_id', userId)
+                .maybeSingle();
+
+            if (error) {
+                console.error('Error fetching center profile:', error);
+                setStoreCenter(null);
+            } else if (data) {
+                // Map center data
+                const centerData = {
+                    id: data.id,
+                    userId: data.user_id,
+                    name: data.name,
+                    centerType: data.center_type,
+                    ownerName: data.owner_name,
+                    ownerPhone: data.phone,
+                    ownerEmail: data.email,
+                    ownerAadhaar: data.owner_aadhaar,
+                    address: data.address,
+                    village: data.village,
+                    block: data.block,
+                    state: data.state,
+                    district: data.district,
+                    pincode: data.pincode,
+                    centerCode: data.center_code,
+                    status: data.status,
+                    idProofUrl: data.id_proof_url,
+                    centerPhotoUrl: data.center_photo_url,
+                    totalStudents: data.total_students || 0,
+                    totalEarnings: Number(data.total_earnings || 0),
+                    createdAt: data.created_at,
+                };
+                setStoreCenter(centerData as any);
+            }
+        } catch (error) {
+            console.error('Error in fetchCenterProfile:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const signOut = async () => {
         const { error } = await backend.auth.signOut();
         if (error) {
@@ -118,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
             setStudent(null);
             setStoreStudent(null);
+            setStoreCenter(null);
         }
     };
 

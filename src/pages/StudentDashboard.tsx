@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CreditCard,
@@ -34,6 +34,7 @@ import { getExamFee, APP_CONFIG, EXAM_CONFIG } from '@/constants/config';
 import { formatCurrency, formatDate, compressImage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { client as backend } from '@/lib/backend';
+import { Student } from '@/types';
 
 // Maximum file size: 2MB
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
@@ -52,7 +53,7 @@ export function StudentDashboard() {
   const { loadWallets, getWalletByStudent, isLoading: walletsLoading } = useWalletStore();
   const { loadRewards, getRewardsByOwner, isLoading: rewardsLoading } = useCenterRewardStore();
   const { updateStudent } = useStudentStore();
-  const [urlStudent, setUrlStudent] = useState<any>(null);
+  const [urlStudent, setUrlStudent] = useState<Student | null>(null);
   const [isFetchingUrlStudent, setIsFetchingUrlStudent] = useState(false);
   const [searchParams] = useSearchParams();
   const studentIdParam = searchParams.get('student_id');
@@ -69,9 +70,35 @@ export function StudentDashboard() {
             .select('*')
             .eq('id', studentIdParam)
             .maybeSingle();
-          
+
           if (data) {
-            setUrlStudent(data);
+            // Map the raw database data to Student format (snake_case -> camelCase)
+            const mappedStudent = {
+              id: data.id,
+              name: data.name,
+              fatherName: data.father_name,
+              class: data.class_level || data.class || 0,
+              mobile: data.mobile,
+              email: data.email,
+              schoolName: data.school_name,
+              schoolContact: data.school_contact,
+              addressVillage: data.address_village,
+              addressBlock: data.address_block,
+              addressTahsil: data.address_tahsil,
+              addressDistrict: data.address_district,
+              addressState: data.address_state,
+              photoUrl: data.photo_url,
+              centerCode: data.center_code,
+              referralCode: data.referral_code,
+              referredByCenter: data.referred_by_center_code || data.referred_by_center,
+              referredByStudent: data.referred_by_student,
+              status: data.payment_status || data.status || 'PENDING',
+              payment_status: data.payment_status || data.status || 'PENDING',
+              createdAt: data.created_at,
+              mobileVerified: data.mobile_verified,
+              emailVerified: data.email_verified,
+            };
+            setUrlStudent(mappedStudent);
           }
         } catch (err) {
           console.error('Error fetching student from URL:', err);
@@ -205,7 +232,7 @@ export function StudentDashboard() {
   if (student.payment_status !== 'success') {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-6">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-2xl w-full bg-background rounded-[3rem] border border-border p-10 lg:p-16 text-center shadow-3xl space-y-8"
@@ -219,7 +246,7 @@ export function StudentDashboard() {
               We have received your registration data. Since you used a manual payment link, our team will verify your transaction within 2-4 hours.
             </p>
           </div>
-          
+
           <div className="bg-secondary/20 rounded-2xl p-6 border border-border text-left space-y-3">
             <p className="text-xs font-black text-primary uppercase tracking-widest">Next Steps:</p>
             <ul className="text-sm text-foreground font-bold space-y-2">
@@ -232,7 +259,7 @@ export function StudentDashboard() {
           <p className="text-sm text-muted-foreground font-bold italic">
             Need help? Contact us: <span className="text-primary">{APP_CONFIG.supportPhone}</span>
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <Button onClick={() => window.location.reload()} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest">
               Check Status

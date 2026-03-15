@@ -8,16 +8,34 @@ export const insforge = createClient({
     anonKey: backendKey
 });
 
-// Adapter to ensure existing code doesn't break while we migrate
-// We export it as 'client' now to avoid backend naming
+// Simple event emitter for auth changes
+const authListeners = new Set<(event: string, session: any) => void>();
+
+const triggerAuthChange = async (event: string) => {
+    const { data } = await insforge.auth.getCurrentSession();
+    authListeners.forEach(listener => listener(event, data?.session || null));
+};
+
 export const client = {
     ...insforge,
     from: (table: string) => insforge.database.from(table),
     rpc: (fn: string, args?: any) => insforge.database.rpc(fn, args),
     auth: {
-        signUp: (opts: any) => insforge.auth.signUp(opts),
-        signInWithPassword: (opts: any) => insforge.auth.signInWithPassword(opts),
-        signOut: () => insforge.auth.signOut(),
+        signUp: async (opts: any) => {
+            const res = await insforge.auth.signUp(opts);
+            if (res.data) await triggerAuthChange('SIGNED_IN');
+            return res;
+        },
+        signInWithPassword: async (opts: any) => {
+            const res = await insforge.auth.signInWithPassword(opts);
+            if (res.data) await triggerAuthChange('SIGNED_IN');
+            return res;
+        },
+        signOut: async () => {
+            const res = await insforge.auth.signOut();
+            triggerAuthChange('SIGNED_OUT');
+            return res;
+        },
         getSession: async () => {
             const { data, error } = await insforge.auth.getCurrentSession();
             return { data: { session: data?.session || null }, error };
@@ -27,10 +45,12 @@ export const client = {
             return { data: { user: data?.session?.user || null }, error };
         },
         onAuthStateChange: (callback: (event: string, session: any) => void) => {
+            authListeners.add(callback);
+            // Initial call
             insforge.auth.getCurrentSession().then(({ data }) => {
                 callback('INITIAL_SESSION', data?.session || null);
             });
-            return { data: { subscription: { unsubscribe: () => { } } } };
+            return { data: { subscription: { unsubscribe: () => authListeners.delete(callback) } } };
         },
         resetPasswordForEmail: async (email: string, options?: any) => {
             const { error } = await insforge.auth.sendResetPasswordEmail({ email });

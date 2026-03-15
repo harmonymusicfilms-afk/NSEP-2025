@@ -140,7 +140,7 @@ export function PaymentPage() {
   const handleGoToDashboard = () => {
     setShowSuccessPopup(false);
     if (newStudent) {
-      navigate(`/student-dashboard?student_id=${newStudent.id}`);
+      navigate(`/dashboard?student_id=${newStudent.id}`);
     } else {
       navigate('/login');
     }

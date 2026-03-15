@@ -17,12 +17,20 @@ import {
   Gift,
   Users,
   Copy,
+  Clock,
 } from 'lucide-react';
 import { CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1236,113 +1244,75 @@ export function CenterRegistrationPage() {
               </div>
             )}
 
-            {/* Success Step */}
-            {step === 'success' && (
-              <div className="text-center py-8 space-y-6 animate-in fade-in zoom-in duration-500">
-                <div className="mx-auto size-24 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-green-100/50">
-                  <CheckCircle className="size-12 text-green-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-green-800 mb-2">
-                    {language === 'hi' ? 'पंजीकरण सफल!' : 'Registration Successful!'}
-                  </h2>
-                  <p className="text-muted-foreground">
-                    {language === 'hi'
-                      ? 'आपका केंद्र आवेदन सफलतापूर्वक जमा कर दिया गया है।'
-                      : 'Your center application has been submitted successfully.'}
-                  </p>
-                </div>
-
-                <div className="bg-muted p-6 rounded-xl border-2 border-dashed border-primary/20 max-w-sm mx-auto hover:bg-muted/80 transition-colors">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                    {language === 'hi' ? 'आपका केंद्र कोड' : 'YOUR CENTER CODE'}
-                  </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-4xl font-mono font-bold text-primary tracking-wider select-all">
-                      {generatedCenterCode}
-                    </span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="hover:bg-primary/10 hover:text-primary transition-colors"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedCenterCode);
-                        toast({ title: "Copied! 📋", description: "Center code copied to clipboard" });
-                      }}
-                    >
-                      <Copy className="size-5" />
-                    </Button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-4 font-medium flex items-center justify-center gap-1">
-                    <AlertCircle className="size-3" />
-                    {language === 'hi' ? 'कृपया इस कोड को सुरक्षित रखें' : 'Please save this code securely'}
-                  </p>
-                </div>
-
-                <div className="pt-6 space-y-3">
-                  <div className="text-sm text-amber-700 bg-amber-50 p-4 rounded-lg border border-amber-200 shadow-sm transition-all duration-300 hover:shadow-md">
-                    <p className="font-bold flex items-center gap-2 mb-1">
-                      <Clock className="size-4" />
-                      {language === 'hi' ? 'आवेदन की समीक्षा' : 'Application Under Review'}
-                    </p>
-                    <p>
-                      {language === 'hi'
-                        ? 'आपका केंद्र आवेदन प्राप्त हो गया है। एक एडमिन आपके द्वारा प्रदान किए गए दस्तावेजों और भुगतान की समीक्षा करेगा। अनुमोदन के बाद आपको ईमेल प्राप्त होगा।'
-                        : 'Your center application has been received. An admin will review your documents and payment. You will receive an email once your center is approved.'}
-                    </p>
-                  </div>
-                  <Link to="/">
-                    <Button className="w-full institutional-gradient h-12 text-lg shadow-lg">
-                      {language === 'hi' ? 'होम पेज पर जाएं' : 'Return to Homepage'}
-                      <ArrowRight className="ml-2 size-5" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {/* Navigation (Hidden on Success) */}
-            {step !== 'success' && (
-              <div className="flex justify-between mt-6 pt-6 border-t">
-                {step !== 'details' ? (
-                  <Button variant="outline" onClick={handleBack}>
-                    <ArrowLeft className="size-4 mr-2" />
-                    {language === 'hi' ? 'पीछे' : 'Back'}
-                  </Button>
-                ) : (
-                  <Link to="/">
-                    <Button variant="ghost">
-                      <ArrowLeft className="size-4 mr-2" />
-                      {language === 'hi' ? 'होम' : 'Home'}
-                    </Button>
-                  </Link>
-                )}
-
-                {step !== 'review' ? (
-                  <Button onClick={handleNext}>
-                    {language === 'hi' ? 'आगे' : 'Next'}
-                    <ArrowRight className="size-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button onClick={handleSubmit} disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <span className="animate-spin mr-2">⏳</span>
-                        {language === 'hi' ? 'जमा हो रहा है...' : 'Submitting...'}
-                      </>
-                    ) : (
-                      <>
-                        {language === 'hi' ? 'आवेदन जमा करें' : 'Submit Application'}
-                        <CheckCircle className="size-4 ml-2" />
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Success View (Modal) */}
+      <Dialog open={step === 'success'} onOpenChange={(open) => { if(!open) navigate('/center/dashboard'); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none shadow-2xl rounded-[2rem] bg-white">
+          <div className="bg-gradient-to-b from-green-50 to-white p-8">
+            <DialogHeader className="text-center pt-4">
+              <div className="mx-auto size-24 bg-green-100 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-green-100/50 animate-bounce">
+                <CheckCircle className="size-12 text-green-600" />
+              </div>
+              <DialogTitle className="text-3xl font-black text-green-800 text-center">
+                {language === 'hi' ? 'बधाई हो!' : 'Congratulations!'}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground text-center text-base font-medium mt-2">
+                {language === 'hi'
+                  ? 'आपका केंद्र सफलतापूर्वक पंजीकृत हो गया है।'
+                  : 'Your center has been successfully registered.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-8 space-y-6">
+              <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-green-200 shadow-inner text-center">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-3">
+                  {language === 'hi' ? 'आपका यूनिक केंद्र कोड' : 'YOUR UNIQUE CENTER CODE'}
+                </p>
+                <div className="flex items-center justify-center gap-4">
+                  <span className="text-4xl font-mono font-black text-primary tracking-tighter">
+                    {generatedCenterCode || 'PENDING'}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="hover:bg-primary/10 hover:text-primary transition-all rounded-full h-12 w-12"
+                    onClick={() => {
+                      if (generatedCenterCode) {
+                        navigator.clipboard.writeText(generatedCenterCode);
+                        toast({ title: "Copied! 📋", description: "Center code copied to clipboard" });
+                      }
+                    }}
+                  >
+                    <Copy className="size-6" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100">
+                <p className="text-xs text-amber-800 flex gap-3 leading-relaxed">
+                  <Clock className="size-5 text-amber-500 shrink-0" />
+                  <span>
+                    {language === 'hi'
+                      ? 'आवेदन की वर्तमान में समीक्षा की जा रही है। अनुमोदन के बाद आपका डैशबोर्ड सक्रिय हो जाएगा।'
+                      : 'Your application is under review. Your dashboard will be activated once approved.'}
+                  </span>
+                </p>
+              </div>
+
+              <Button 
+                className="w-full h-16 rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 text-white font-black text-lg shadow-xl hover:scale-[1.02] transition-transform"
+                onClick={() => navigate('/center/dashboard')}
+              >
+                {language === 'hi' ? 'डैशबोर्ड पर जाएं' : 'Go to Dashboard'}
+                <ArrowRight className="ml-2 size-5" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
