@@ -18,6 +18,7 @@ import {
   Users,
   Copy,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -117,7 +118,7 @@ export function CenterRegistrationPage() {
   const { setCenter } = useAuthStore();
 
   useEffect(() => {
-    console.log("NSEP Debug - Form Data Updated:", formData);
+    console.log('[NSEP Center Registration] Form Data Updated:', formData);
   }, [formData]);
 
   useEffect(() => {
@@ -241,7 +242,8 @@ export function CenterRegistrationPage() {
     // Removed artificial delay for snappy UX
 
     const centerCode = generateCenterCode();
-    console.log("NSEP Debug - Generated Center Code:", centerCode);
+    console.log('[NSEP Center Registration] Starting registration process');
+    console.log('[NSEP Center Registration] Generated Center Code:', centerCode);
 
     // Create center record
     const center = {
@@ -266,11 +268,18 @@ export function CenterRegistrationPage() {
       idProofUrl: formData.idProofUrl,
       centerPhotoUrl: formData.userPhotoUrl,
     };
-    console.log("NSEP Debug - Center Object created:", center);
+    console.log('[NSEP Center Registration] Center Object created:', JSON.stringify({
+      name: center.name,
+      centerType: center.centerType,
+      ownerName: center.ownerName,
+      ownerEmail: center.ownerEmail,
+      centerCode: center.centerCode,
+      status: center.status
+    }));
 
     // 4. Save to backend (Real Database)
     try {
-      console.log("NSEP Debug - Process started for:", formData.ownerEmail);
+      console.log('[NSEP Center Registration] Step 1: Creating auth user for:', formData.ownerEmail);
 
       // Step A: Attempt Auth SignUp (Fire and Forget if already exists)
       const { data: authData, error: authError } = await backend.auth.signUp({
@@ -281,17 +290,19 @@ export function CenterRegistrationPage() {
 
       const userId = authData?.user?.id;
       if (authError && !authError.message?.toLowerCase().includes('already registered')) {
-        console.warn("Auth signup error (non-critical):", authError.message);
+        console.warn('[NSEP Center Registration] Auth signup error:', authError.message);
+      } else if (!authError) {
+        console.log('[NSEP Center Registration] Auth user created, ID:', userId);
       }
 
-      // Step B: Direct Insert attempt (using user's schema column names)
+      // Step B: Direct Insert attempt (using correct database column names)
       const centerData = {
-        center_name: center.name,
+        name: center.name,
         center_type: center.centerType,
         owner_name: center.ownerName,
-        owner_mobile: center.ownerPhone,
-        owner_email: center.ownerEmail,
-        center_address: center.address,
+        phone: center.ownerPhone,
+        email: center.ownerEmail,
+        address: center.address,
         village: center.village,
         block: center.block,
         district: center.district,
@@ -300,34 +311,48 @@ export function CenterRegistrationPage() {
         id_proof_url: center.idProofUrl,
         center_code: center.centerCode,
         status: 'PENDING',
+        payment_status: 'unpaid',
       };
 
+      console.log('[NSEP Center Registration] Step 2: Inserting into centers table...');
       const { error: insertError } = await backend.from('centers').insert([centerData]);
 
       if (insertError) {
+        console.error('[NSEP Center Registration] Center insert error:', insertError.message, insertError.code);
+
+        let errorMessage = insertError.message || 'Failed to register center. Please try again.';
+
         // If it's a duplicate, it's actually a success for the user
-        if (insertError.message.toLowerCase().includes('duplicate') || insertError.code === '23505') {
-          console.log("Duplicate detected, fetching existing code...");
+        if (insertError.message?.toLowerCase().includes('duplicate') || insertError.code === '23505') {
+          console.log('[NSEP Center Registration] Duplicate center detected, fetching existing code...');
           const { data: existing } = await backend
             .from('centers')
             .select('center_code')
-            .eq('owner_email', formData.ownerEmail)
+            .eq('email', formData.ownerEmail)
             .maybeSingle();
 
           if (existing) {
+            console.log('[NSEP Center Registration] Found existing center code:', existing.center_code);
             setGeneratedCenterCode(existing.center_code);
             setStep('success');
             setIsSubmitting(false);
             return;
           }
         }
+
+        toast({
+          title: 'Registration Failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
         throw insertError;
       }
+      console.log('[NSEP Center Registration] Center inserted successfully');
 
       // Step C: Create referral code record in DB so center can start referring immediately
       try {
-        console.log("NSEP Debug - Creating referral code for:", center.centerCode);
-        await backend.from('referral_codes').insert([{
+        console.log('[NSEP Center Registration] Step 3: Creating referral code for:', center.centerCode);
+        const { error: referralError } = await backend.from('referral_codes').insert([{
           code: center.centerCode,
           type: 'CENTER_CODE',
           owner_id: center.id,
@@ -337,6 +362,9 @@ export function CenterRegistrationPage() {
           total_referrals: 0,
           total_earnings: 0,
         }]);
+        if (referralError) {
+          console.error('Failed to create referral code:', referralError);
+        }
       } catch (refErr) {
         console.warn("Auto-referral code creation failed (non-critical):", refErr);
       }
@@ -368,13 +396,13 @@ export function CenterRegistrationPage() {
             const mappedCenter = {
               id: centerData.id,
               userId: centerData.user_id,
-              name: centerData.center_name,
+              name: centerData.name,
               centerType: centerData.center_type,
               ownerName: centerData.owner_name,
-              ownerPhone: centerData.owner_mobile,
-              ownerEmail: centerData.owner_email,
+              ownerPhone: centerData.phone,
+              ownerEmail: centerData.email,
               ownerAadhaar: centerData.owner_aadhaar,
-              address: centerData.center_address,
+              address: centerData.address,
               village: centerData.village,
               block: centerData.block,
               state: centerData.state,
@@ -384,7 +412,6 @@ export function CenterRegistrationPage() {
               status: centerData.status,
               idProofUrl: centerData.id_proof_url,
               addressProofUrl: centerData.address_proof_url,
-              centerPhotoUrl: centerData.center_photo_url,
               approvedBy: centerData.approved_by,
               approvedAt: centerData.approved_at,
               rejectionReason: centerData.rejection_reason,
@@ -411,7 +438,7 @@ export function CenterRegistrationPage() {
       const { data: finalCheck } = await backend
         .from('centers')
         .select('center_code')
-        .eq('owner_email', formData.ownerEmail)
+        .eq('email', formData.ownerEmail)
         .maybeSingle();
 
       if (finalCheck) {

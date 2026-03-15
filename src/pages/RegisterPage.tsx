@@ -80,7 +80,7 @@ export function RegisterPage() {
   const [searchParams] = useSearchParams();
   const [showReferralGate, setShowReferralGate] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const { addStudent } = useStudentStore();
@@ -160,7 +160,7 @@ export function RegisterPage() {
     if (!formData.name?.trim()) newErrors.name = 'Full name is required';
     if (!formData.fatherName.trim()) newErrors.fatherName = "Father's name is required";
     if (!formData.class) newErrors.class = 'Class is required';
-    
+
     // Mobile Validation
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Mobile is required';
@@ -184,11 +184,11 @@ export function RegisterPage() {
 
     // Photo Validation
     if (!formData.photoUrl) newErrors.photoUrl = 'Photo is required';
-    
+
     // School Details Validation
     if (!formData.schoolName.trim()) newErrors.schoolName = 'School name is required';
     if (!formData.schoolContact.trim()) newErrors.schoolContact = 'School contact is required';
-    
+
     // Referral Validation (Make it optional if not provided)
     if (formData.referredByCenter.trim()) {
       if (!referralInfo) {
@@ -212,7 +212,7 @@ export function RegisterPage() {
     }
 
     setErrors(newErrors);
-    
+
     const hasErrors = Object.keys(newErrors).length > 0;
     if (hasErrors) {
       console.log('Validation failed for fields:', Object.keys(newErrors));
@@ -227,7 +227,7 @@ export function RegisterPage() {
       // Find what exactly is missing for a better toast message
       const missingFields: string[] = [];
       const currentErrors = errors; // Note: validationForm sets state, might need local check
-      
+
       // Re-run local check for immediate feedback logic
       if (!formData.name?.trim()) missingFields.push('Full Name');
       if (!formData.fatherName.trim()) missingFields.push('Father Name');
@@ -239,18 +239,18 @@ export function RegisterPage() {
       if (!formData.schoolName.trim()) missingFields.push('School Name');
       if (!formData.addressVillage.trim()) missingFields.push('Village');
       if (!formData.addressDistrict.trim()) missingFields.push('District');
-      
+
       const isConsentValid = consentData.termsAccepted && consentData.privacyAccepted && consentData.referralPolicyAccepted;
       if (!isConsentValid) missingFields.push('Accept all Terms & Conditions');
 
-      const description = missingFields.length > 0 
+      const description = missingFields.length > 0
         ? `Please check: ${missingFields.join(', ')}`
         : 'Please fill all required fields correctly.';
 
-      toast({ 
-        title: 'Validation Error', 
-        description, 
-        variant: 'destructive' 
+      toast({
+        title: 'Validation Error',
+        description,
+        variant: 'destructive'
       });
       return;
     }
@@ -264,13 +264,24 @@ export function RegisterPage() {
         referredBy: formData.referredByCenter.toUpperCase(), // Map both to same field for now
       };
 
+      console.log('[NSEP Student Registration] Form validated, preparing to redirect to payment');
+      console.log('[NSEP Student Registration] Student data:', {
+        name: formData.name,
+        email: formData.email,
+        mobile: formData.mobile,
+        class: formData.class,
+        schoolName: formData.schoolName,
+        referredBy: formData.referredByCenter,
+        referralType
+      });
+
       toast({ title: 'Ready', description: 'Proceeding to secure payment...' });
-      
+
       // Redirect to payment page, carrying the form data in the state
       navigate('/payment', { state: { registrationData } });
 
     } catch (error: any) {
-      console.error('Registration Error:', error);
+      console.error('[NSEP Student Registration] Error preparing registration:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
@@ -279,29 +290,37 @@ export function RegisterPage() {
 
   const handlePhotoUpload = async (file: File) => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      console.warn('[NSEP Student Registration] Invalid file type:', file.type);
       toast({ title: "Invalid File", description: "Only JPG, PNG and WebP are allowed.", variant: "destructive" });
       return;
     }
     setIsUploading(true);
+    console.log('[NSEP Student Registration] Starting photo upload:', file.name, file.size);
     try {
       const compressedBase64 = await compressImage(file, 800);
       const res = await fetch(compressedBase64);
       const blob = await res.blob();
       const fileName = `temp_${Date.now()}_${file.name}`;
-      
+
+      console.log('[NSEP Storage] Uploading photo to student-photos bucket:', fileName);
       const { error: uploadError } = await backend.storage
         .from('student-photos')
         .upload(fileName, blob, { contentType: blob.type });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[NSEP Storage] Photo upload failed:', uploadError.message);
+        throw uploadError;
+      }
 
       const { data: { publicUrl } } = backend.storage
         .from('student-photos')
         .getPublicUrl(fileName);
 
+      console.log('[NSEP Storage] Photo uploaded successfully, URL:', publicUrl);
       updateField('photoUrl', publicUrl);
       toast({ title: 'Photo Uploaded ✓' });
-    } catch (err) {
+    } catch (err: any) {
+      console.error('[NSEP Student Registration] Photo upload error:', err.message || err);
       toast({ title: 'Upload Failed', variant: 'destructive' });
     } finally {
       setIsUploading(false);
@@ -312,27 +331,27 @@ export function RegisterPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full rounded-[2.5rem] p-8 border-border shadow-2xl text-center space-y-8">
-           <div className="mx-auto size-24 bg-primary/10 rounded-[2rem] flex items-center justify-center shadow-lg">
-             <Users className="size-12 text-primary" />
-           </div>
-           <h2 className="text-3xl font-black tracking-tight text-foreground">Referral Required</h2>
-           <p className="text-muted-foreground font-bold italic">Registration is exclusively via trusted referrals to ensure NSEP integrity.</p>
-           <div className="space-y-4">
-             <Input 
-                id="manual-ref"
-                placeholder="ENTER REFERRAL CODE" 
-                className="h-14 text-center font-mono tracking-widest uppercase rounded-2xl"
-             />
-             <Button 
-                onClick={() => {
-                  const code = (document.getElementById('manual-ref') as HTMLInputElement).value;
-                  if (code) navigate(`/register?ref=${code.trim().toUpperCase()}`);
-                }}
-                className="w-full h-14 rounded-2xl bg-primary text-white font-black uppercase shadow-lg shadow-primary/20"
-             >
-                Verify & Continue
-             </Button>
-           </div>
+          <div className="mx-auto size-24 bg-primary/10 rounded-[2rem] flex items-center justify-center shadow-lg">
+            <Users className="size-12 text-primary" />
+          </div>
+          <h2 className="text-3xl font-black tracking-tight text-foreground">Referral Required</h2>
+          <p className="text-muted-foreground font-bold italic">Registration is exclusively via trusted referrals to ensure NSEP integrity.</p>
+          <div className="space-y-4">
+            <Input
+              id="manual-ref"
+              placeholder="ENTER REFERRAL CODE"
+              className="h-14 text-center font-mono tracking-widest uppercase rounded-2xl"
+            />
+            <Button
+              onClick={() => {
+                const code = (document.getElementById('manual-ref') as HTMLInputElement).value;
+                if (code) navigate(`/register?ref=${code.trim().toUpperCase()}`);
+              }}
+              className="w-full h-14 rounded-2xl bg-primary text-white font-black uppercase shadow-lg shadow-primary/20"
+            >
+              Verify & Continue
+            </Button>
+          </div>
         </Card>
       </div>
     );
@@ -367,7 +386,7 @@ export function RegisterPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="p-10 lg:p-14 space-y-12">
             {/* Section 1: Basic Info */}
             <section className="space-y-6">
@@ -429,7 +448,7 @@ export function RegisterPage() {
                   </div>
                   <Input type="file" accept="image/*" className="hidden" id="photo-up" onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])} />
                   <Button variant="outline" onClick={() => document.getElementById('photo-up')?.click()} className="rounded-xl font-bold gap-2">
-                   <Upload className="size-4" /> Upload Photo
+                    <Upload className="size-4" /> Upload Photo
                   </Button>
                   {errors.photoUrl && <p className="text-xs text-destructive font-bold">{errors.photoUrl}</p>}
                 </div>
@@ -438,26 +457,26 @@ export function RegisterPage() {
 
             {/* Section 2: School Info */}
             <section className="space-y-6">
-               <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
+              <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
                 <GraduationCap className="size-4" /> 02. Academic Institution
               </h3>
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                   <Label htmlFor="schoolName">School Name *</Label>
-                   <Input id="schoolName" value={formData.schoolName} onChange={e => updateField('schoolName', e.target.value)} placeholder="Complete school name" className={errors.schoolName ? 'border-destructive' : ''} />
-                   {errors.schoolName && <p className="text-xs text-destructive font-bold">{errors.schoolName}</p>}
+                  <Label htmlFor="schoolName">School Name *</Label>
+                  <Input id="schoolName" value={formData.schoolName} onChange={e => updateField('schoolName', e.target.value)} placeholder="Complete school name" className={errors.schoolName ? 'border-destructive' : ''} />
+                  {errors.schoolName && <p className="text-xs text-destructive font-bold">{errors.schoolName}</p>}
                 </div>
                 <div className="space-y-2">
-                   <Label htmlFor="schoolContact">School Mobile *</Label>
-                   <Input id="schoolContact" value={formData.schoolContact} onChange={e => updateField('schoolContact', e.target.value.replace(/\D/g, ''))} maxLength={10} placeholder="School mobile" className={errors.schoolContact ? 'border-destructive' : ''} />
-                   {errors.schoolContact && <p className="text-xs text-destructive font-bold">{errors.schoolContact}</p>}
+                  <Label htmlFor="schoolContact">School Mobile *</Label>
+                  <Input id="schoolContact" value={formData.schoolContact} onChange={e => updateField('schoolContact', e.target.value.replace(/\D/g, ''))} maxLength={10} placeholder="School mobile" className={errors.schoolContact ? 'border-destructive' : ''} />
+                  {errors.schoolContact && <p className="text-xs text-destructive font-bold">{errors.schoolContact}</p>}
                 </div>
               </div>
             </section>
 
-             {/* Section 3: Address Info */}
-             <section className="space-y-6">
-               <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
+            {/* Section 3: Address Info */}
+            <section className="space-y-6">
+              <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
                 <Users className="size-4" /> 03. Residential Address
               </h3>
               <div className="grid sm:grid-cols-2 gap-6">
@@ -470,33 +489,33 @@ export function RegisterPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="district">District *</Label>
-                   {formData.addressState && STATE_DISTRICTS[formData.addressState] ? (
+                  {formData.addressState && STATE_DISTRICTS[formData.addressState] ? (
                     <Select value={formData.addressDistrict} onValueChange={v => updateField('addressDistrict', v)}>
                       <SelectTrigger className={errors.addressDistrict ? 'border-destructive' : ''}><SelectValue placeholder="Select District" /></SelectTrigger>
                       <SelectContent>
                         {STATE_DISTRICTS[formData.addressState].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                   ) : <Input placeholder="Select state first" disabled />}
+                  ) : <Input placeholder="Select state first" disabled />}
                 </div>
                 <div className="space-y-2">
-                   <Label htmlFor="village">Village / Locality *</Label>
-                   <Input id="village" value={formData.addressVillage} onChange={e => updateField('addressVillage', e.target.value)} placeholder="Village" />
+                  <Label htmlFor="village">Village / Locality *</Label>
+                  <Input id="village" value={formData.addressVillage} onChange={e => updateField('addressVillage', e.target.value)} placeholder="Village" />
                 </div>
                 <div className="space-y-2">
-                   <Label htmlFor="block">Block *</Label>
-                   <Input id="block" value={formData.addressBlock} onChange={e => updateField('addressBlock', e.target.value)} placeholder="Block" />
+                  <Label htmlFor="block">Block *</Label>
+                  <Input id="block" value={formData.addressBlock} onChange={e => updateField('addressBlock', e.target.value)} placeholder="Block" />
                 </div>
                 <div className="space-y-2">
-                   <Label htmlFor="tahsil">Tahsil *</Label>
-                   <Input id="tahsil" value={formData.addressTahsil} onChange={e => updateField('addressTahsil', e.target.value)} placeholder="Tahsil" />
+                  <Label htmlFor="tahsil">Tahsil *</Label>
+                  <Input id="tahsil" value={formData.addressTahsil} onChange={e => updateField('addressTahsil', e.target.value)} placeholder="Tahsil" />
                 </div>
               </div>
             </section>
 
             {/* Section 4: Referral */}
             <section className="p-6 bg-secondary/20 rounded-[2rem] border border-border">
-               <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2 mb-6">
+              <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2 mb-6">
                 <Gift className="size-4" /> 04. Referral Authorization
               </h3>
               <div className="space-y-4">
@@ -518,7 +537,7 @@ export function RegisterPage() {
 
             {/* Section 5: Consent */}
             <section className="space-y-6">
-               <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
+              <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] flex items-center gap-2">
                 <Shield className="size-4" /> 05. Legal Consent
               </h3>
               <div className="space-y-4 bg-background p-6 rounded-2xl border border-border">
@@ -538,7 +557,7 @@ export function RegisterPage() {
 
             {/* Final Button */}
             <div className="pt-10">
-              <Button 
+              <Button
                 onClick={handleNext}
                 disabled={isSubmitting}
                 className="w-full h-20 rounded-[2rem] institutional-gradient text-white font-black text-2xl shadow-[0_0_30px_rgba(255,165,0,0.3)] hover:scale-[1.01] transition-all flex items-center justify-center gap-4"

@@ -58,7 +58,10 @@ export const ExamSchedulerService = {
             await this.dispatchBulkNotifications(schedule.id, 'EXAM_DAY', schedule.exam_date);
 
             // Update status to LIVE
-            await backend.from('exam_schedules').update({ status: 'LIVE' }).eq('id', schedule.id);
+            const { error: updateError } = await backend.from('exam_schedules').update({ status: 'LIVE' }).eq('id', schedule.id);
+            if (updateError) {
+                console.error('Failed to update exam_schedules status to LIVE:', updateError);
+            }
         }
     },
 
@@ -86,12 +89,15 @@ export const ExamSchedulerService = {
 
         if (!data || data.length === 0) {
             console.log(`[Scheduler] Auto-scheduling recurring exam for ${dateStr}`);
-            await backend.from('exam_schedules').insert([{
+            const { error: insertError } = await backend.from('exam_schedules').insert([{
                 exam_date: dateStr,
                 status: 'SCHEDULED',
                 recurring: true,
                 auto_generate_questions: true
             }]);
+            if (insertError) {
+                console.error('Failed to auto-schedule exam:', insertError);
+            }
         }
     },
 
@@ -133,7 +139,7 @@ export const ExamSchedulerService = {
             await this.sendWhatsAppMessage(student.mobile, `Namaste ${student.name}, this is a reminder for your upcoming GPHDM Scholarship Exam on ${examDate}. Prep well!`);
 
             // 4. Log the dispatch
-            await backend.from('notification_dispatch_logs').insert([{
+            const { error: whatsAppError } = await backend.from('notification_dispatch_logs').insert([{
                 schedule_id: scheduleId,
                 student_id: student.id,
                 channel: 'WHATSAPP',
@@ -141,8 +147,11 @@ export const ExamSchedulerService = {
                 status: 'SENT',
                 sent_at: new Date().toISOString()
             }]);
+            if (whatsAppError) {
+                console.error('Failed to log WhatsApp notification:', whatsAppError);
+            }
 
-            await backend.from('notification_dispatch_logs').insert([{
+            const { error: emailError } = await backend.from('notification_dispatch_logs').insert([{
                 schedule_id: scheduleId,
                 student_id: student.id,
                 channel: 'EMAIL',
@@ -150,6 +159,9 @@ export const ExamSchedulerService = {
                 status: 'SENT',
                 sent_at: new Date().toISOString()
             }]);
+            if (emailError) {
+                console.error('Failed to log email notification:', emailError);
+            }
         }
     },
 

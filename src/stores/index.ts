@@ -26,6 +26,16 @@ import type {
   ExamSchedule,
   NotificationDispatchLog,
   AIGenerationReport,
+  CenterPayment,
+  PaymentLog,
+  ClassFee,
+  Center,
+  ReferralCode,
+  ReferralLog,
+  DashboardStats,
+  ClassWiseStats,
+  GalleryItem,
+  ReferralCodeType,
 } from '@/types';
 import { SyllabusService } from '@/lib/syllabusService';
 import { AIExamService } from '@/lib/aiExamService';
@@ -35,7 +45,6 @@ import { generateId, generateCenterCode, generateOrderId, generatePaymentId, gen
 import { sendEmailNotification } from '@/lib/emailNotifications';
 import { initializeMockData, mockExamQuestions } from '@/constants/mockData';
 import { client as backend } from '@/lib/backend';
-import type { DashboardStats, ClassWiseStats as ClassStats, ReferralCodeType, ReferralCode, ReferralLog, Center, GalleryItem } from '@/types';
 
 // Mapping Helpers for backend (snake_case) to Frontend (camelCase)
 const mapStudent = (data: any): Student => ({
@@ -138,13 +147,14 @@ const mapReferralLog = (data: any): ReferralLog => ({
 const mapCenter = (data: any): Center => ({
   id: data.id,
   userId: data.user_id,
-  name: data.center_name,
+  // Support both new (name, email, phone, address) and old (center_name, owner_email, owner_mobile, center_address) field names
+  name: data.name || data.center_name || '',
   centerType: data.center_type,
   ownerName: data.owner_name,
-  ownerPhone: data.owner_mobile,
-  ownerEmail: data.owner_email,
+  ownerPhone: data.phone || data.owner_mobile || '',
+  ownerEmail: data.email || data.owner_email || '',
   ownerAadhaar: data.owner_aadhaar,
-  address: data.center_address,
+  address: data.address || data.center_address || '',
   village: data.village,
   block: data.block,
   state: data.state,
@@ -152,6 +162,9 @@ const mapCenter = (data: any): Center => ({
   pincode: data.pincode,
   centerCode: data.center_code,
   status: data.status,
+  payment_status: data.payment_status,
+  transactionId: data.transaction_id,
+  paymentScreenshotUrl: data.payment_screenshot_url,
   idProofUrl: data.id_proof_url,
   createdAt: data.created_at,
   totalStudents: 0,
@@ -362,20 +375,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data: centerData, error: centerError } = await backend
         .from('centers')
         .select('*')
-        .eq('owner_email', email.trim())
+        .eq('email', email.trim())
         .maybeSingle();
 
       if (centerError || !centerData) {
         throw new Error('Center not found with this email');
       }
 
-      // Check if center is approved and payment is paid
-      if (centerData.status !== 'active') {
-        if (centerData.payment_status === 'unpaid') {
-          throw new Error('Your center is not active yet. Please complete the ₹500 registration payment.');
-        } else {
-          throw new Error('Your center registration is not yet approved. Please wait for admin approval.');
-        }
+      // Check if center is active AND paid
+      // Support both old status values ('active', 'pending') and new ('APPROVED', 'PENDING')
+      const normalizedStatus = (centerData.status || '').toUpperCase();
+      if (normalizedStatus !== 'APPROVED' && normalizedStatus !== 'ACTIVE') {
+        throw new Error('Your center is not activated yet. Please complete ₹500 payment.');
+      }
+
+      if (centerData.payment_status !== 'paid' && (centerData.payment_status || '').toLowerCase() !== 'paid') {
+        throw new Error('Your center is not activated yet. Please complete ₹500 payment.');
       }
 
       // Try auth sign in
@@ -408,9 +423,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginAdmin: async (email, password) => {
     set({ isLoading: true });
     try {
-      // ✅ NEW ADMIN LOGIN SYSTEM - Use database credentials
-      const superAdminEmail = 'admin@gphdm.com';
-      const superAdminPassword = 'admin123';
+      // Get admin credentials from environment variables
+      const superAdminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@gphdm.com';
+      const superAdminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
 
       // Check if login matches the new database credentials
       if (email.toLowerCase().trim() === superAdminEmail && password === superAdminPassword) {
@@ -459,7 +474,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             name: 'Super Admin',
             email: superAdminEmail,
             role: 'SUPER_ADMIN',
-            password_hash: superAdminPassword,
             last_login: new Date().toISOString()
           }]);
 
@@ -520,9 +534,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const currentAdmin = admin!;
 
       // Update last login (fire and forget)
-      backend.from('admin_users').update({
+      const { error: loginError } = await backend.from('admin_users').update({
         last_login: new Date().toISOString()
-      }).eq('id', currentAdmin.id).then();
+      }).eq('id', currentAdmin.id);
+      if (loginError) {
+        console.error('Failed to update last login:', loginError);
+      }
 
       set({ currentAdmin: currentAdmin, isAdminLoggedIn: true });
       return currentAdmin;
@@ -649,8 +666,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
     const centerCode = generateCenterCode();
     const referralCode = generateStudentReferralCode(userId);
-    console.log('DEBUG: addStudent receiving data:', data);
-    console.log('Adding student to DB...', { userId, centerCode, referralCode });
+    console.log('[NSEP Student Store] addStudent receiving data:', data);
+    console.log('[NSEP Student Store] Adding student to DB...', { userId, centerCode, referralCode });
     try {
       const studentData = {
         id: userId,
@@ -680,7 +697,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         class_selected: data.class,
       };
 
-      console.log('DEBUG: Final studentData for DB:', studentData);
+      console.log('[NSEP Student Store] Final studentData for DB insert');
 
       const { data: newStudent, error } = await backend
         .from('students')
@@ -689,7 +706,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         .maybeSingle();
 
       if (error) {
-        console.error('DATABASE ERROR (students upsert):', error.message, error.details, error.hint);
+        console.error('[NSEP Student Store] DATABASE ERROR (students upsert):', error.message, error.details, error.hint);
         if (error.message.toLowerCase().includes('duplicate') || error.message.toLowerCase().includes('already exists')) {
           throw new Error('This Mobile number or ID is already in use by another account.');
         }
@@ -866,7 +883,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   createPayment: async (studentId, amount) => {
-    console.log('Creating payment for student:', studentId, 'amount:', amount);
+    console.log('[NSEP Payment Store] Creating payment for student:', studentId, '| amount:', amount);
     try {
       const { data, error } = await backend
         .from('payments')
@@ -880,20 +897,62 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         .maybeSingle();
 
       if (error) {
-        console.error('backend payment insert error:', error);
+        console.error('[NSEP Payment Store] Payment insert error:', error.message, error.code);
         throw error;
       }
+      console.log('[NSEP Payment Store] Payment created successfully, ID:', data?.id);
       const payment = mapPayment(data);
       set({ payments: [payment, ...get().payments] });
       return payment;
     } catch (error: any) {
-      console.error('Catch block in createPayment:', error.message || error);
+      console.error('[NSEP Payment Store] Catch block in createPayment:', error.message || error);
       return null;
     }
   },
 
   verifyPayment: async (paymentId, razorpayPaymentId, signature) => {
+    console.log('[NSEP Payment Store] Verifying payment:', paymentId);
+    console.log('[NSEP Payment Store] Verification details:', {
+      razorpay_payment_id: razorpayPaymentId,
+      signature_present: !!signature
+    });
     try {
+      // Security: First fetch the existing payment to verify it exists and is pending
+      const { data: existingPayment, error: fetchError } = await backend
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('[NSEP Payment Store] Payment fetch error:', fetchError.message);
+        throw fetchError;
+      }
+
+      if (!existingPayment) {
+        throw new Error('Payment not found');
+      }
+
+      // Security: Check if payment is already verified to prevent replay attacks
+      if (existingPayment.status === 'SUCCESS') {
+        console.warn('[NSEP Payment Store] Payment already verified:', paymentId);
+        throw new Error('Payment already verified');
+      }
+
+      // Security: Check if this razorpay_payment_id was already used (prevents duplicate verification)
+      const { data: duplicateCheck } = await backend
+        .from('payments')
+        .select('id')
+        .eq('razorpay_payment_id', razorpayPaymentId)
+        .neq('id', paymentId) // Exclude current payment
+        .maybeSingle();
+
+      if (duplicateCheck) {
+        console.error('[NSEP Payment Store] Razorpay payment ID already used:', razorpayPaymentId);
+        throw new Error('This payment has already been processed');
+      }
+
+      // Now update the payment status
       const { data, error } = await backend
         .from('payments')
         .update({
@@ -903,10 +962,22 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           paid_at: new Date().toISOString(),
         })
         .eq('id', paymentId)
+        .eq('status', 'PENDING') // Only update if still pending (atomic operation)
         .select()
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[NSEP Payment Store] Payment update error:', error.message, error.code);
+        throw error;
+      }
+
+      // Security: Handle case where payment was already processed (atomic update returned null)
+      if (!data) {
+        console.warn('[NSEP Payment Store] Payment update returned no data - may already be processed:', paymentId);
+        throw new Error('Payment could not be verified. It may have already been processed.');
+      }
+
+      console.log('[NSEP Payment Store] Payment verified and updated successfully');
       const updatedPayment = mapPayment(data);
 
       // Update student status to ACTIVE once payment is verified
@@ -1231,6 +1302,252 @@ export const usePaymentRequestStore = create<PaymentRequestState>((set, get) => 
 
   getPendingRequests: () => get().paymentRequests.filter(r => r.status === 'PENDING_REVIEW'),
   getByStudent: (studentId) => get().paymentRequests.filter(r => r.studentId === studentId),
+}));
+
+// Map functions for new payment tables
+const mapCenterPayment = (data: any): CenterPayment => ({
+  id: data.id,
+  centerId: data.center_id,
+  razorpayOrderId: data.razorpay_order_id,
+  razorpayPaymentId: data.razorpay_payment_id,
+  amount: Number(data.amount),
+  status: data.status,
+  createdAt: data.created_at,
+});
+
+const mapPaymentLog = (data: any): PaymentLog => ({
+  id: data.id,
+  centerId: data.center_id,
+  orderId: data.order_id,
+  paymentId: data.payment_id,
+  amount: Number(data.amount),
+  status: data.status,
+  createdAt: data.created_at,
+  updatedAt: data.updated_at,
+});
+
+const mapClassFee = (data: any): ClassFee => ({
+  id: data.id,
+  classLevel: data.class_level,
+  joiningAmount: Number(data.joining_amount),
+  examFee: Number(data.exam_fee),
+  isActive: data.is_active,
+  createdAt: data.created_at,
+  updatedAt: data.updated_at,
+});
+
+// Center Payments Store (for center registration fees)
+interface CenterPaymentState {
+  centerPayments: CenterPayment[];
+  isLoading: boolean;
+  error: string | null;
+  loadCenterPayments: () => Promise<void>;
+  createCenterPayment: (centerId: string, amount: number) => Promise<CenterPayment | null>;
+  updateCenterPaymentStatus: (paymentId: string, status: string, razorpayPaymentId?: string) => Promise<void>;
+  getPaymentByCenter: (centerId: string) => CenterPayment | undefined;
+}
+
+export const useCenterPaymentStore = create<CenterPaymentState>((set, get) => ({
+  centerPayments: [],
+  isLoading: false,
+  error: null,
+
+  loadCenterPayments: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await backend
+        .from('center_payments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('center_payments table does not exist');
+          set({ centerPayments: [] });
+          return;
+        }
+        throw error;
+      }
+      set({ centerPayments: (data || []).map(mapCenterPayment) });
+    } catch (error) {
+      console.error('Error loading center payments:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to load center payments' });
+      set({ centerPayments: [] });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  createCenterPayment: async (centerId, amount) => {
+    try {
+      const orderId = 'CPAY-' + crypto.randomUUID();
+      const { data, error } = await backend
+        .from('center_payments')
+        .insert([{
+          center_id: centerId,
+          razorpay_order_id: orderId,
+          amount,
+          status: 'pending'
+        }])
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const payment = mapCenterPayment(data);
+      set({ centerPayments: [payment, ...get().centerPayments] });
+      return payment;
+    } catch (error) {
+      console.error('Error creating center payment:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to create center payment' });
+      return null;
+    }
+  },
+
+  updateCenterPaymentStatus: async (paymentId, status, razorpayPaymentId) => {
+    try {
+      const updateData: any = { status };
+      if (razorpayPaymentId) {
+        updateData.razorpay_payment_id = razorpayPaymentId;
+      }
+
+      const { data, error } = await backend
+        .from('center_payments')
+        .update(updateData)
+        .eq('id', paymentId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const updatedPayment = mapCenterPayment(data);
+      set({
+        centerPayments: get().centerPayments.map(p =>
+          p.id === paymentId ? updatedPayment : p
+        )
+      });
+    } catch (error) {
+      console.error('Error updating center payment:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to update center payment' });
+      throw error;
+    }
+  },
+
+  getPaymentByCenter: (centerId) =>
+    get().centerPayments.find(p => p.centerId === centerId),
+}));
+
+// Payment Logs Store
+interface PaymentLogState {
+  paymentLogs: PaymentLog[];
+  isLoading: boolean;
+  error: string | null;
+  loadPaymentLogs: () => Promise<void>;
+  addPaymentLog: (centerId: string, amount: number, status: string, orderId?: string, paymentId?: string) => Promise<PaymentLog | null>;
+  getLogsByCenter: (centerId: string) => PaymentLog[];
+}
+
+export const usePaymentLogStore = create<PaymentLogState>((set, get) => ({
+  paymentLogs: [],
+  isLoading: false,
+  error: null,
+
+  loadPaymentLogs: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await backend
+        .from('payment_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('payment_logs table does not exist');
+          set({ paymentLogs: [] });
+          return;
+        }
+        throw error;
+      }
+      set({ paymentLogs: (data || []).map(mapPaymentLog) });
+    } catch (error) {
+      console.error('Error loading payment logs:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to load payment logs' });
+      set({ paymentLogs: [] });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  addPaymentLog: async (centerId, amount, status, orderId, paymentId) => {
+    try {
+      const { data, error } = await backend
+        .from('payment_logs')
+        .insert([{
+          center_id: centerId,
+          amount,
+          status,
+          order_id: orderId,
+          payment_id: paymentId
+        }])
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      const log = mapPaymentLog(data);
+      set({ paymentLogs: [log, ...get().paymentLogs] });
+      return log;
+    } catch (error) {
+      console.error('Error adding payment log:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to add payment log' });
+      return null;
+    }
+  },
+
+  getLogsByCenter: (centerId) =>
+    get().paymentLogs.filter(l => l.centerId === centerId),
+}));
+
+// Class Fees Store
+interface ClassFeeState {
+  classFees: ClassFee[];
+  isLoading: boolean;
+  error: string | null;
+  loadClassFees: () => Promise<void>;
+  getFeeByClass: (classLevel: number) => ClassFee | undefined;
+}
+
+export const useClassFeeStore = create<ClassFeeState>((set, get) => ({
+  classFees: [],
+  isLoading: false,
+  error: null,
+
+  loadClassFees: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await backend
+        .from('class_fees')
+        .select('*')
+        .eq('is_active', true)
+        .order('class_level');
+
+      if (error) {
+        if (error.code === '42P01') {
+          console.warn('class_fees table does not exist');
+          set({ classFees: [] });
+          return;
+        }
+        throw error;
+      }
+      set({ classFees: (data || []).map(mapClassFee) });
+    } catch (error) {
+      console.error('Error loading class fees:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to load class fees' });
+      set({ classFees: [] });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  getFeeByClass: (classLevel) =>
+    get().classFees.find(f => f.classLevel === classLevel),
 }));
 
 // Wallet Store
@@ -1559,7 +1876,6 @@ export const useReferralStore = create<ReferralState>((set, get) => ({
           owner_aadhaar: data.ownerAadhaar,
           id_proof_url: data.idProofUrl,
           address_proof_url: data.addressProofUrl,
-          center_photo_url: data.centerPhotoUrl,
           status: 'PENDING',
           center_code: generateCenterCode(),
         }])
@@ -2693,7 +3009,7 @@ function extractVariables(text: string): string[] {
 // Admin Store
 interface AdminState {
   stats: DashboardStats | null;
-  classStats: ClassStats[];
+  classStats: ClassWiseStats[];
   isLoading: boolean;
   fetchDashboardStats: () => Promise<void>;
   fetchClassWiseStats: () => Promise<void>;
@@ -2721,7 +3037,7 @@ export const useAdminStore = create<AdminState>((set) => ({
     try {
       const { data, error } = await backend.rpc('get_class_wise_stats');
       if (error) throw error;
-      set({ classStats: data as ClassStats[] });
+      set({ classStats: data as ClassWiseStats[] });
     } catch (error) {
       console.error('Error fetching class stats:', error);
     }
@@ -2920,11 +3236,15 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   fetchAutomationData: async () => {
     set({ isLoading: true });
     try {
-      const [{ data: schedules }, { data: aiReports }, { data: notifLogs }] = await Promise.all([
+      const [{ data: schedules, error: schedError }, { data: aiReports, error: aiError }, { data: notifLogs, error: notifError }] = await Promise.all([
         backend.from('exam_schedules').select('*').order('exam_date', { ascending: true }),
         backend.from('ai_generation_reports').select('*').order('created_at', { ascending: false }),
         backend.from('notification_dispatch_logs').select('*').order('sent_at', { ascending: false }).limit(100)
       ]);
+
+      if (schedError) console.error('Error fetching exam_schedules:', schedError);
+      if (aiError) console.error('Error fetching ai_generation_reports:', aiError);
+      if (notifError) console.error('Error fetching notification_dispatch_logs:', notifError);
 
       set({
         schedules: schedules || [],

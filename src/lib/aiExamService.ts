@@ -68,13 +68,17 @@ export const AIExamService = {
             if (insertError) throw insertError;
 
             // 5. Update report status
-            await backend
+            const { error: updateError } = await backend
                 .from('ai_generation_reports')
                 .update({
                     status: 'SUCCESS',
                     questions_generated: generatedQuestions.length
                 })
                 .eq('id', reportData.id);
+
+            if (updateError) {
+                console.error('Failed to update AI generation report:', updateError);
+            }
 
             return { success: true, questions: generatedQuestions, reportId: reportData.id };
 

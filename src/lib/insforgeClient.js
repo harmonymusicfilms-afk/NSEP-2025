@@ -8,10 +8,37 @@ const client = createClient({
     anonKey: backendKey
 });
 
+// Create a wrapper that exposes .db property for InsForge SDK
+const clientWithDb = {
+    ...client,
+    db: {
+        from: (table) => {
+            if (import.meta.env.DEV) {
+                console.log(`[NSEP DB] client.db.from("${table}")`);
+            }
+            return client.from(table);
+        }
+    },
+    // Also expose .from() directly for Supabase compatibility
+    from: (table) => {
+        if (import.meta.env.DEV) {
+            console.log(`[NSEP DB] client.from("${table}")`);
+        }
+        return client.from(table);
+    }
+};
+
 // Expose client globally for browser console testing
 if (typeof window !== 'undefined') {
-    window.client = client;
-    console.log('[NSEP] InsForge client exposed globally as window.client');
+    window.client = clientWithDb;
+    if (import.meta.env.DEV) {
+        console.log('[NSEP] InsForge client exposed globally as window.client');
+        console.log('[NSEP] Testing client.db.from("centers").select("*")...');
+
+        // Quick test to verify db property exists
+        console.log('[NSEP] client.db exists:', clientWithDb.db !== undefined);
+        console.log('[NSEP] client.db.from exists:', typeof clientWithDb.db?.from === 'function');
+    }
 }
 
-export default client;
+export default clientWithDb;

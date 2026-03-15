@@ -38,9 +38,22 @@ export function CenterLoginPage() {
             });
             navigate('/center/dashboard');
         } catch (error: any) {
+            console.error('Center login error:', error);
+            let errorMessage = 'Invalid email or password.';
+
+            if (error.message) {
+                if (error.message.includes('not activated') || error.message.includes('payment')) {
+                    errorMessage = 'Your center is not activated. Please complete ₹500 payment first.';
+                } else if (error.message.includes('not found')) {
+                    errorMessage = 'No center found with this email. Please register first.';
+                } else {
+                    errorMessage = error.message;
+                }
+            }
+
             toast({
                 title: 'Login Failed',
-                description: error.message || 'Invalid email or password.',
+                description: errorMessage,
                 variant: 'destructive',
             });
         } finally {

@@ -107,18 +107,24 @@ export function CenterPaymentFailed() {
                         }
 
                         // Update payment status in centers table
-                        await backend.from('centers')
+                        const { error: centerUpdateError } = await backend.from('centers')
                             .update({ payment_status: 'paid', status: 'active' })
                             .eq('center_code', initialCenterCode);
+                        if (centerUpdateError) {
+                            console.error('Failed to update center payment status:', centerUpdateError);
+                        }
 
                         // Save payment details
-                        await backend.from('center_payments').insert([{
+                        const { error: paymentInsertError } = await backend.from('center_payments').insert([{
                             center_id: (await backend.from('centers').select('id').eq('center_code', initialCenterCode).single()).data.id,
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_payment_id: response.razorpay_payment_id,
                             amount: 500,
                             status: 'success'
                         }]);
+                        if (paymentInsertError) {
+                            console.error('Failed to insert payment record:', paymentInsertError);
+                        }
 
                         navigate(`/center/payment-success?centerCode=${initialCenterCode}`, {
                             replace: true

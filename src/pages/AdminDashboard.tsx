@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { APP_CONFIG, CLASSES } from '@/constants/config';
 import { formatCurrency } from '@/lib/utils';
+import { client as backend } from '@/lib/backend';
 import {
   useAuthStore,
   useStudentStore,
@@ -54,6 +55,13 @@ export function AdminDashboard() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { currentAdmin, isAdminLoggedIn } = useAuthStore();
+
+  // Center stats state
+  const [centerStats, setCenterStats] = useState({
+    total: 0,
+    active: 0,
+    pending: 0,
+  });
 
   // Stores
   const { students, loadStudents } = useStudentStore();
@@ -79,6 +87,22 @@ export function AdminDashboard() {
     loadReferralData();
     fetchDashboardStats();
     fetchClassWiseStats();
+
+    // Fetch center stats
+    const fetchCenterStats = async () => {
+      try {
+        const { data: centersData } = await backend.from('centers').select('status, payment_status');
+        if (centersData) {
+          const total = centersData.length;
+          const active = centersData.filter(c => c.status === 'APPROVED' && c.payment_status === 'paid').length;
+          const pending = centersData.filter(c => c.status === 'PENDING' || c.payment_status !== 'paid').length;
+          setCenterStats({ total, active, pending });
+        }
+      } catch (error) {
+        console.error('Error fetching center stats:', error);
+      }
+    };
+    fetchCenterStats();
   }, [isAdminLoggedIn, currentAdmin, navigate, loadStudents, loadPayments, loadExamData, loadScholarships, loadCertificates, loadRewards, loadReferralData, fetchDashboardStats, fetchClassWiseStats]);
 
   // Dashboard Stats from Backend RPC
@@ -206,6 +230,30 @@ export function AdminDashboard() {
       bg: 'bg-blue-100',
     },
     {
+      title: 'Total Centers',
+      value: centerStats.total,
+      subtitle: `${centerStats.active} active`,
+      icon: Building2,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-100',
+    },
+    {
+      title: 'Active Centers',
+      value: centerStats.active,
+      subtitle: 'paid & active',
+      icon: Building2,
+      color: 'text-green-600',
+      bg: 'bg-green-100',
+    },
+    {
+      title: 'Pending Centers',
+      value: centerStats.pending,
+      subtitle: 'awaiting payment',
+      icon: Clock,
+      color: 'text-amber-600',
+      bg: 'bg-amber-100',
+    },
+    {
       title: 'Total Revenue',
       value: formatCurrency(totalRevenueAmount),
       subtitle: `${successfulPaymentsCount} payments`,
@@ -236,14 +284,6 @@ export function AdminDashboard() {
       icon: Share2,
       color: 'text-orange-600',
       bg: 'bg-orange-100',
-    },
-    {
-      title: 'Pending Centers',
-      value: (centers || []).filter(c => c.status === 'PENDING').length,
-      subtitle: 'for review',
-      icon: Building2,
-      color: 'text-rose-600',
-      bg: 'bg-rose-100',
     },
     {
       title: 'Certificates Issued',

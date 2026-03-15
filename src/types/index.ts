@@ -59,6 +59,37 @@ export interface PaymentRequest {
   updatedAt: string;
 }
 
+export interface CenterPayment {
+  id: string;
+  centerId: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  amount: number;
+  status: 'pending' | 'success' | 'failed';
+  createdAt: string;
+}
+
+export interface PaymentLog {
+  id: string;
+  centerId: string;
+  orderId?: string;
+  paymentId?: string;
+  amount: number;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClassFee {
+  id: string;
+  classLevel: number;
+  joiningAmount: number;
+  examFee: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CenterReward {
   id: string;
   centerOwnerStudentId: string;
@@ -215,6 +246,9 @@ export interface DashboardStats {
   certificatesIssued: number;
   pendingScholarships: number;
   totalCenterRewards: number;
+  totalCenters: number;
+  activeCenters: number;
+  pendingCenters: number;
 }
 
 export interface ClassWiseStats {
@@ -334,7 +368,9 @@ export interface Center {
   ownerName: string;
   ownerPhone: string;
   ownerEmail: string;
-  ownerAadhaar: string;
+  ownerAadhaar?: string;
+  email?: string; // Alternative email field
+  phone?: string; // Alternative phone field
   address: string;
   village: string;
   block: string;
@@ -342,7 +378,11 @@ export interface Center {
   district: string;
   pincode: string;
   centerCode: string; // Unique center referral code
-  status: 'PENDING' | 'APPROVED' | 'BLOCKED';
+  status: 'PENDING' | 'APPROVED' | 'BLOCKED' | 'pending' | 'active';
+  paymentStatus?: 'unpaid' | 'paid' | 'pending';
+  payment_status?: string; // Raw from database
+  transactionId?: string;  // Transaction / UTR ID for registration fee
+  paymentScreenshotUrl?: string;  // URL to payment screenshot
   idProofUrl?: string;
   addressProofUrl?: string;
   centerPhotoUrl?: string;

@@ -44,6 +44,7 @@ import { CenterDashboardPage } from '@/pages/CenterDashboardPage';
 import { CenterStudentsPage } from '@/pages/CenterStudentsPage';
 import { CenterRewardsPage } from '@/pages/CenterRewardsPage';
 import { CenterProfilePage } from '@/pages/CenterProfilePage';
+import { CenterAddStudentPage } from '@/pages/CenterAddStudentPage';
 
 // Layouts
 import { PublicLayout, StudentLayout, AdminLayout, AuthLayout, CenterLayout } from '@/components/layout';
@@ -88,6 +89,7 @@ function App() {
           <Route element={<CenterLayout />}>
             <Route path="/center/dashboard" element={<CenterDashboardPage />} />
             <Route path="/center/students" element={<CenterStudentsPage />} />
+            <Route path="/center/add-student" element={<CenterAddStudentPage />} />
             <Route path="/center/rewards" element={<CenterRewardsPage />} />
             <Route path="/center/profile" element={<CenterProfilePage />} />
           </Route>

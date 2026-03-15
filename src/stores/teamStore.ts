@@ -109,7 +109,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         });
 
         try {
-            await backend.from('team_members').insert([{
+            const { error: insertError } = await backend.from('team_members').insert([{
                 id: newMember.id,
                 name: newMember.name,
                 role: newMember.role,
@@ -117,6 +117,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
                 image_url: newMember.imageUrl,
                 display_order: newMember.displayOrder,
             }]);
+            if (insertError) {
+                console.error('Failed to insert team member:', insertError);
+            }
         } catch (e) {
             console.error('Failed to save team member to backend', e);
         }
@@ -137,7 +140,10 @@ export const useTeamStore = create<TeamState>((set, get) => ({
             if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
             if (updates.displayOrder !== undefined) dbUpdates.display_order = updates.displayOrder;
 
-            await backend.from('team_members').update(dbUpdates).eq('id', id);
+            const { error: updateError } = await backend.from('team_members').update(dbUpdates).eq('id', id);
+            if (updateError) {
+                console.error('Failed to update team member:', updateError);
+            }
         } catch (e) {
             console.error('Failed to update team member in backend', e);
         }
@@ -151,7 +157,10 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         });
 
         try {
-            await backend.from('team_members').delete().eq('id', id);
+            const { error: deleteError } = await backend.from('team_members').delete().eq('id', id);
+            if (deleteError) {
+                console.error('Failed to delete team member:', deleteError);
+            }
         } catch (e) {
             console.error('Failed to delete team member from backend', e);
         }
@@ -164,7 +173,10 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         try {
             // Batch update using loop
             for (const m of members) {
-                await backend.from('team_members').update({ display_order: m.displayOrder }).eq('id', m.id);
+                const { error: reorderError } = await backend.from('team_members').update({ display_order: m.displayOrder }).eq('id', m.id);
+                if (reorderError) {
+                    console.error('Failed to reorder team member:', reorderError);
+                }
             }
         } catch (e) {
             console.error('Failed to reorder team members', e);

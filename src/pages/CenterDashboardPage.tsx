@@ -197,6 +197,11 @@ export function CenterDashboardPage() {
                             <h4 className="text-sm font-semibold">Center Quick Actions</h4>
                             <div className="grid grid-cols-2 gap-2">
                                 <Button variant="outline" className="text-xs h-9 justify-start" asChild>
+                                    <Link to="/center/add-student">
+                                        <Users className="size-3 mr-2" /> Add Student
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" className="text-xs h-9 justify-start" asChild>
                                     <Link to="/center/students">
                                         <Users className="size-3 mr-2" /> View All
                                     </Link>

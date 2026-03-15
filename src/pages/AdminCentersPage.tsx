@@ -71,12 +71,12 @@ export function AdminCentersPage() {
 
   const mapCenter = (data: any): Center => ({
     id: data.id,
-    name: data.center_name || '',
+    name: data.name || '',
     centerType: data.center_type || '',
     ownerName: data.owner_name || '',
-    ownerPhone: data.owner_mobile || '',
-    ownerEmail: data.owner_email || '',
-    address: data.center_address || '',
+    ownerPhone: data.phone || '',
+    ownerEmail: data.email || '',
+    address: data.address || '',
     village: data.village || '',
     block: data.block || '',
     state: data.state || '',
@@ -84,6 +84,7 @@ export function AdminCentersPage() {
     pincode: data.pincode || '',
     centerCode: data.center_code || '',
     status: data.status || 'PENDING',
+    paymentStatus: data.payment_status || data.paymentStatus || 'unpaid',
     idProofUrl: data.id_proof_url || '',
     createdAt: data.created_at || new Date().toISOString(),
     totalStudents: 0,
@@ -243,16 +244,17 @@ export function AdminCentersPage() {
           <Button
             variant="outline"
             onClick={() => {
-              const headers = ['Center Name', 'Owner', 'Email', 'Phone', 'District', 'State', 'Code', 'Status', 'Applied Date'];
+              const headers = ['Center Name', 'Owner', 'Email', 'Phone', 'District', 'State', 'Code', 'Status', 'Payment Status', 'Applied Date'];
               const data = filteredCenters.map(c => [
                 c.name,
                 c.ownerName,
-                c.email,
-                c.phone,
+                c.ownerEmail,
+                c.ownerPhone,
                 c.district,
                 c.state,
                 c.centerCode,
                 c.status,
+                c.paymentStatus || c.payment_status || 'unpaid',
                 formatDate(c.createdAt)
               ]);
 
@@ -383,6 +385,7 @@ export function AdminCentersPage() {
                     <TableHead>Location</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Payment</TableHead>
                     <TableHead>Applied</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -393,7 +396,7 @@ export function AdminCentersPage() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{center.name}</p>
-                          <p className="text-xs text-muted-foreground">{center.email}</p>
+                          <p className="text-xs text-muted-foreground">{center.ownerEmail}</p>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -417,6 +420,13 @@ export function AdminCentersPage() {
                             center.status === 'PENDING' ? 'secondary' : 'destructive'
                         }>
                           {center.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          (center.payment_status === 'paid' || center.paymentStatus === 'paid') ? 'default' : 'secondary'
+                        }>
+                          {center.payment_status || center.paymentStatus || 'unpaid'}
                         </Badge>
                       </TableCell>
                       <TableCell>

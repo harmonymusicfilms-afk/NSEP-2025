@@ -47,12 +47,12 @@ export function SimpleCenterRegistrationPage() {
 
             // First, register the center with pending payment status
             const { error: registerError } = await backend.from('centers').insert([{
-                center_name: formData.centerName,
+                name: formData.centerName,
                 center_type: formData.centerType,
                 owner_name: formData.ownerName,
-                owner_mobile: formData.ownerPhone,
-                owner_email: formData.ownerEmail,
-                center_address: formData.address,
+                phone: formData.ownerPhone,
+                email: formData.ownerEmail,
+                address: formData.address,
                 village: formData.village,
                 block: formData.block,
                 district: formData.district,
@@ -65,9 +65,16 @@ export function SimpleCenterRegistrationPage() {
 
             if (registerError) {
                 console.error('Registration Error:', registerError);
+                let errorMsg = registerError.message || 'Failed to register center. Please try again.';
+
+                // Check for specific errors
+                if (registerError.message?.toLowerCase().includes('duplicate') || registerError.code === '23505') {
+                    errorMsg = 'A center with this email already exists. Please try logging in.';
+                }
+
                 toast({
-                    title: 'Error',
-                    description: registerError.message,
+                    title: 'Registration Failed',
+                    description: errorMsg,
                     variant: 'destructive',
                 });
                 setIsLoading(false);
@@ -136,18 +143,35 @@ export function SimpleCenterRegistrationPage() {
                         }
 
                         // Update payment status in centers table
-                        await backend.from('centers')
-                            .update({ payment_status: 'paid', status: 'active' })
+                        const { error: updateError } = await backend.from('centers')
+                            .update({ payment_status: 'paid', status: 'APPROVED' })
                             .eq('center_code', code);
 
+                        if (updateError) {
+                            console.error('Center activation error:', updateError);
+                            throw new Error('Failed to activate center. Please contact support.');
+                        }
+
                         // Save payment details
-                        await backend.from('center_payments').insert([{
-                            center_id: (await backend.from('centers').select('id').eq('center_code', code).single()).data.id,
+                        const { data: centerData, error: centerFetchError } = await backend.from('centers').select('id').eq('center_code', code).single();
+
+                        if (centerFetchError || !centerData) {
+                            console.error('Failed to get center ID:', centerFetchError);
+                            throw new Error('Failed to save payment. Please contact support.');
+                        }
+
+                        const { error: paymentInsertError } = await backend.from('center_payments').insert([{
+                            center_id: centerData.id,
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_payment_id: response.razorpay_payment_id,
                             amount: 500,
                             status: 'success'
                         }]);
+
+                        if (paymentInsertError) {
+                            console.error('Payment insert error:', paymentInsertError);
+                            // Don't throw here, center is already activated
+                        }
 
                         setIsPaymentPending(false);
                         // Navigate to success page
@@ -161,13 +185,16 @@ export function SimpleCenterRegistrationPage() {
                         });
 
                         // Update payment status as failed
-                        await backend.from('center_payments').insert([{
+                        const { error: failedPaymentError } = await backend.from('center_payments').insert([{
                             center_id: (await backend.from('centers').select('id').eq('center_code', code).single()).data.id,
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_payment_id: response.razorpay_payment_id,
                             amount: 500,
                             status: 'failed'
                         }]);
+                        if (failedPaymentError) {
+                            console.error('Failed to insert failed payment record:', failedPaymentError);
+                        }
 
                         // Navigate to failure page
                         navigate(`/center/payment-failed?centerCode=${code}`, { replace: true });

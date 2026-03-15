@@ -57,26 +57,40 @@ export function LoginPage() {
     if (!validate()) return;
 
     setIsLoading(true);
+    console.log('[NSEP Login] Starting login process for:', email, '| Type:', loginType);
 
     try {
+      console.log('[NSEP Auth] Attempting signInWithPassword...');
       const { data, error } = await backend.auth.signInWithPassword({
         email: email.trim(),
         password: password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[NSEP Auth] Sign in failed:', error.message, error.code);
+        throw error;
+      }
       if (!data.user) throw new Error('No user found');
+
+      console.log('[NSEP Auth] Sign in successful, user ID:', data.user.id);
 
       // Handle based on login type
       if (loginType === 'admin') {
         // Admin login - check admins table
+        console.log('[NSEP DB] Checking admins table for user:', data.user.id);
         const { data: adminData, error: adminError } = await backend
           .from('admins')
           .select('*')
           .eq('id', data.user.id)
           .maybeSingle();
 
+        if (adminError) {
+          console.error('[NSEP DB] Admin lookup error:', adminError.message);
+          throw adminError;
+        }
+
         if (adminData) {
+          console.log('[NSEP Login] Admin login successful:', adminData.email);
           toast({
             title: 'Admin Login Successful',
             description: 'Welcome to the admin dashboard!',
@@ -84,18 +98,27 @@ export function LoginPage() {
           navigate('/admin/dashboard');
           return;
         } else {
+          console.error('[NSEP Login] Admin account not found for user:', data.user.id);
           throw new Error('Admin account not found');
         }
       } else if (loginType === 'center') {
         // Center login - check centers table
+        console.log('[NSEP DB] Checking centers table for user:', data.user.id);
         const { data: centerData, error: centerError } = await backend
           .from('centers')
           .select('*')
           .eq('id', data.user.id)
           .maybeSingle();
 
+        if (centerError) {
+          console.error('[NSEP DB] Center lookup error:', centerError.message);
+          throw centerError;
+        }
+
         if (centerData) {
+          console.log('[NSEP Login] Center found, status:', centerData.status);
           if (centerData.status !== 'APPROVED') {
+            console.warn('[NSEP Login] Center not approved, status:', centerData.status);
             throw new Error('Your center account is pending approval');
           }
           toast({
@@ -105,17 +128,25 @@ export function LoginPage() {
           navigate('/center/dashboard');
           return;
         } else {
+          console.error('[NSEP Login] Center account not found for user:', data.user.id);
           throw new Error('Center account not found');
         }
       } else {
         // Student login - check students table
+        console.log('[NSEP DB] Checking students table for user:', data.user.id);
         const { data: studentData, error: studentError } = await backend
           .from('students')
           .select('*')
           .eq('id', data.user.id)
           .maybeSingle();
 
+        if (studentError) {
+          console.error('[NSEP DB] Student lookup error:', studentError.message);
+          throw studentError;
+        }
+
         if (studentData) {
+          console.log('[NSEP Login] Student login successful:', studentData.email, '| Status:', studentData.status);
           let loggedIn = await loginStudent(email.toLowerCase().trim(), studentData.mobile);
 
           if (!loggedIn) {
@@ -124,6 +155,14 @@ export function LoginPage() {
               fatherName: studentData.father_name,
               class: studentData.class || studentData.class_level,
               mobile: studentData.mobile,
+              email: studentData.email,
+              schoolName: studentData.school_name,
+              schoolContact: studentData.school_contact,
+              addressVillage: studentData.address_village,
+              addressBlock: studentData.address_block,
+              addressTahsil: studentData.address_tahsil,
+              addressDistrict: studentData.address_district,
+              addressState: studentData.address_state,
             }, data.user.id);
 
             loggedIn = await loginStudent(studentData.email, studentData.mobile);
@@ -135,11 +174,13 @@ export function LoginPage() {
           });
           navigate('/dashboard');
         } else {
+          console.error('[NSEP Login] Student profile not found for user:', data.user.id);
           throw new Error('Student profile not found');
         }
       }
 
     } catch (error: any) {
+      console.error('[NSEP Login] Login failed with error:', error.message || error);
       toast({
         variant: 'destructive',
         title: 'Login Failed',
